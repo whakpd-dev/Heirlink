@@ -1,0 +1,25 @@
+#!/usr/bin/expect -f
+set timeout 120
+spawn npx eas-cli build --platform android --profile preview
+expect {
+    "Generate a new Android Keystore?" {
+        send "y\r"
+        exp_continue
+    }
+    "Would you like to set up" {
+        send "y\r"
+        exp_continue
+    }
+    "appVersionSource" {
+        exp_continue
+    }
+    "Build details" {
+        # build submitted
+    }
+    "Waiting for build" {
+        # build in progress
+    }
+    eof
+}
+catch wait result
+exit [lindex $result 3]

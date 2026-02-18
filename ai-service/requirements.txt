@@ -1,0 +1,23 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+pillow==10.1.0
+numpy==1.24.3
+torch==2.1.0
+torchvision==0.16.0
+transformers==4.35.0
+diffusers==0.24.0
+opencv-python==4.8.1.78
+requests==2.31.0
+aiofiles==23.2.1
+redis==5.0.1
+python-dotenv==1.0.0
+
+# AI/ML Libraries
+# Uncomment based on your model choices
+# realesrgan==0.3.0
+# basicsr==1.4.2
+# gfpgan==1.3.8
+# clip-by-openai
+# blip-image-captioning
