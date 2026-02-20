@@ -14,7 +14,17 @@ type Props = {
 function resolveUri(uri: string): string {
   if (!uri || typeof uri !== 'string') return '';
   const trimmed = uri.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  
+  // Если уже полный URL, заменяем localhost на правильный домен
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // Заменяем localhost:3000 на правильный домен для продакшена
+    if (trimmed.includes('localhost:3000')) {
+      return trimmed.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru');
+    }
+    return trimmed;
+  }
+  
+  // Относительный путь - добавляем базовый URL
   const base = (API_URL || '').replace(/\/$/, '');
   return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`;
 }
@@ -28,7 +38,15 @@ function isLoadableUri(uri: string): boolean {
 
 export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover' }) => {
   const resolved = resolveUri(uri);
+  
+  if (__DEV__ && uri) {
+    console.log('[SmartImage]', { original: uri, resolved, isValid: isLoadableUri(resolved) });
+  }
+  
   if (!resolved || !isLoadableUri(resolved)) {
+    if (__DEV__) {
+      console.warn('[SmartImage] Invalid URI:', { uri, resolved });
+    }
     return (
       <View style={[style, { backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' }]}>
         <Ionicons name="image-outline" size={32} color="#666" />
