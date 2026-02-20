@@ -35,13 +35,13 @@ export class MessagesService {
             PARTITION BY CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END
             ORDER BY m."createdAt" DESC
           ) AS rn
-        FROM "Message" m
+        FROM messages m
         WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
       )
       SELECT c.other_id, c.last_text, c.last_at,
-             u.username AS other_username, u."avatarUrl" AS other_avatar
+             u.username AS other_username, u.avatar_url AS other_avatar
       FROM conversations c
-      JOIN "User" u ON u.id = c.other_id
+      JOIN users u ON u.id = c.other_id
       WHERE c.rn = 1
       ORDER BY c.last_at DESC
       LIMIT ${limitClamped} OFFSET ${skip}
@@ -49,7 +49,7 @@ export class MessagesService {
 
     const countResult: Array<{ cnt: bigint }> = await this.prisma.$queryRaw`
       SELECT COUNT(DISTINCT CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END)::bigint AS cnt
-      FROM "Message" m
+      FROM messages m
       WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
     `;
     const total = Number(countResult[0]?.cnt ?? 0);
