@@ -11,12 +11,14 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SendMessageDto } from './dto/send-message.dto';
 
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
+@Throttle({ short: { ttl: 1000, limit: 30 }, long: { ttl: 60000, limit: 100 } })
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

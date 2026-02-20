@@ -7,12 +7,26 @@ type EventHandler = (data: any) => void;
 class SocketService {
   private socket: Socket | null = null;
   private listeners = new Map<string, Set<EventHandler>>();
+  private connecting = false;
 
   async connect() {
+    // Если уже подключен, не делаем ничего
     if (this.socket?.connected) return;
+    
+    // Если уже идет подключение, ждем
+    if (this.connecting) return;
+    
+    // Если сокет существует но не подключен, отключаем его перед созданием нового
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
 
     const token = await AsyncStorage.getItem('accessToken');
     if (!token) return;
+
+    this.connecting = true;
 
     this.socket = io(API_URL, {
       auth: { token },
@@ -21,17 +35,21 @@ class SocketService {
       reconnectionDelay: 2000,
       reconnectionAttempts: 10,
       upgrade: true,
+      forceNew: false, // Переиспользуем соединение если возможно
     });
 
     this.socket.on('connect', () => {
+      this.connecting = false;
       if (__DEV__) console.log('[Socket] Connected');
     });
 
     this.socket.on('disconnect', (reason) => {
+      this.connecting = false;
       if (__DEV__) console.log('[Socket] Disconnected:', reason);
     });
 
     this.socket.on('connect_error', (err) => {
+      this.connecting = false;
       if (__DEV__) console.log('[Socket] Connection error:', err.message);
     });
 
@@ -43,6 +61,8 @@ class SocketService {
   }
 
   disconnect() {
+    this.connecting = false;
+    this.socket?.removeAllListeners();
     this.socket?.disconnect();
     this.socket = null;
   }

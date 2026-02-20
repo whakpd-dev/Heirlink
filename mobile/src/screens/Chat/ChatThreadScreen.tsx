@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
@@ -37,6 +38,26 @@ function formatTime(iso: string): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.floor((today.getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Сегодня';
+  if (diffDays === 1) return 'Вчера';
+  if (diffDays < 7) return d.toLocaleDateString('ru-RU', { weekday: 'long' });
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+function shouldShowDateHeader(current: string, previous: string | null): boolean {
+  if (!previous) return true;
+  const currDate = new Date(current).toDateString();
+  const prevDate = new Date(previous).toDateString();
+  return currDate !== prevDate;
+}
+
 export const ChatThreadScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -59,6 +80,7 @@ export const ChatThreadScreen: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const typingAnimation = useRef(new Animated.Value(0)).current;
 
   const userQuery = useQuery({
     queryKey: ['user', otherUserId],
@@ -75,6 +97,9 @@ export const ChatThreadScreen: React.FC = () => {
       return (res?.items ?? []) as MessageItem[];
     },
     enabled: !!otherUserId,
+    staleTime: 3000, // Данные считаются свежими 3 секунды
+    gcTime: 300000, // Кэш хранится 5 минут
+    retry: 1,
   });
 
   useEffect(() => {
@@ -90,10 +115,21 @@ export const ChatThreadScreen: React.FC = () => {
       }
     });
     const unsubTyping = socketService.on('typing', (data: any) => {
-      if (data.userId === otherUserId) setIsTyping(true);
+      if (data.userId === otherUserId) {
+        setIsTyping(true);
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(typingAnimation, { toValue: 1, duration: 600, useNativeDriver: true }),
+            Animated.timing(typingAnimation, { toValue: 0, duration: 600, useNativeDriver: true }),
+          ])
+        ).start();
+      }
     });
     const unsubStopTyping = socketService.on('stopTyping', (data: any) => {
-      if (data.userId === otherUserId) setIsTyping(false);
+      if (data.userId === otherUserId) {
+        setIsTyping(false);
+        typingAnimation.setValue(0);
+      }
     });
     return () => { unsubMsg(); unsubTyping(); unsubStopTyping(); };
   }, [otherUserId, queryClient]);
@@ -113,8 +149,16 @@ export const ChatThreadScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (otherUserId) messagesQuery.refetch();
-    }, [otherUserId]),
+      if (otherUserId) {
+        // Обновляем только если данные устарели (прошло больше 3 секунд)
+        if (messagesQuery.dataUpdatedAt && Date.now() - messagesQuery.dataUpdatedAt > 3000) {
+          messagesQuery.refetch();
+        } else if (!messagesQuery.data) {
+          // Если данных нет, загружаем
+          messagesQuery.refetch();
+        }
+      }
+    }, [otherUserId, messagesQuery]),
   );
 
   const sendMutation = useMutation({
@@ -157,41 +201,80 @@ export const ChatThreadScreen: React.FC = () => {
   }, [inputText, sendMutation, otherUserId]);
 
   const renderMessage = useCallback(
-    ({ item }: { item: MessageItem }) => (
-      <View
-        style={[
-          styles.bubbleWrap,
-          item.isFromMe ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
-        ]}
-      >
-        <View
-          style={[
-            styles.bubble,
-            item.isFromMe
-              ? [styles.bubbleMine, { backgroundColor: colors.primary }]
-              : [styles.bubbleTheirs, { backgroundColor: colors.surface, borderColor: colors.border }],
-          ]}
-        >
-          <Text
+    ({ item, index }: { item: MessageItem; index: number }) => {
+      const prevMsg = index > 0 ? messages[index - 1] : null;
+      const showDateHeader = shouldShowDateHeader(item.createdAt, prevMsg?.createdAt ?? null);
+      const showAvatar = !item.isFromMe && (prevMsg === null || prevMsg.isFromMe || prevMsg.sender?.id !== item.sender?.id);
+      
+      return (
+        <View>
+          {showDateHeader && (
+            <View style={styles.dateHeader}>
+              <View style={[styles.dateHeaderLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dateHeaderText, { color: colors.textTertiary }]}>
+                {formatDate(item.createdAt)}
+              </Text>
+              <View style={[styles.dateHeaderLine, { backgroundColor: colors.border }]} />
+            </View>
+          )}
+          <View
             style={[
-              styles.bubbleText,
-              { color: item.isFromMe ? '#fff' : colors.text },
+              styles.bubbleWrap,
+              item.isFromMe ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
             ]}
           >
-            {item.text}
-          </Text>
-          <Text
-            style={[
-              styles.bubbleTime,
-              { color: item.isFromMe ? 'rgba(255,255,255,0.7)' : colors.textTertiary },
-            ]}
-          >
-            {formatTime(item.createdAt)}
-          </Text>
+            {!item.isFromMe && showAvatar && (
+              <View style={[styles.avatarSmall, { backgroundColor: colors.background }]}>
+                {item.sender?.avatarUrl ? (
+                  <SmartImage uri={item.sender.avatarUrl} style={styles.avatarSmallImage} />
+                ) : (
+                  <Ionicons name="person" size={14} color={colors.textTertiary} />
+                )}
+              </View>
+            )}
+            {!item.isFromMe && !showAvatar && <View style={styles.avatarSpacer} />}
+            <View
+              style={[
+                styles.bubble,
+                item.isFromMe
+                  ? [styles.bubbleMine, { 
+                      backgroundColor: colors.primary,
+                      shadowColor: colors.primary,
+                    }]
+                  : [styles.bubbleTheirs, { 
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      shadowColor: colors.shadow,
+                    }],
+              ]}
+            >
+              <Text
+                style={[
+                  styles.bubbleText,
+                  { color: item.isFromMe ? '#fff' : colors.text },
+                ]}
+              >
+                {item.text}
+              </Text>
+              <View style={styles.bubbleFooter}>
+                <Text
+                  style={[
+                    styles.bubbleTime,
+                    { color: item.isFromMe ? 'rgba(255,255,255,0.75)' : colors.textTertiary },
+                  ]}
+                >
+                  {formatTime(item.createdAt)}
+                </Text>
+                {item.isFromMe && (
+                  <Ionicons name="checkmark-done" size={12} color="rgba(255,255,255,0.75)" style={styles.readIcon} />
+                )}
+              </View>
+            </View>
+          </View>
         </View>
-      </View>
-    ),
-    [colors],
+      );
+    },
+    [colors, messages],
   );
 
   if (!otherUserId) {
@@ -270,24 +353,65 @@ export const ChatThreadScreen: React.FC = () => {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
+          renderItem={({ item, index }) => renderMessage({ item, index })}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+              <Ionicons name="chatbubble-outline" size={64} color={colors.textTertiary} />
+              <Text style={[styles.emptyText, { color: colors.textTertiary, marginTop: spacing.md }]}>
                 Напишите первым
               </Text>
             </View>
           }
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+          }}
         />
       )}
 
       {isTyping && (
-        <View style={[styles.typingRow, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.typingText, { color: colors.textTertiary }]}>
-            {otherUser?.username ?? 'Собеседник'} печатает...
-          </Text>
+        <View style={[styles.typingContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Animated.View
+              style={[
+                styles.typingDot,
+                {
+                  backgroundColor: colors.textTertiary,
+                  opacity: typingAnimation.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.3, 1, 0.3],
+                  }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.typingDot,
+                {
+                  backgroundColor: colors.textTertiary,
+                  opacity: typingAnimation.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.3, 1, 0.3],
+                  }),
+                },
+                { marginLeft: spacing.xs },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.typingDot,
+                {
+                  backgroundColor: colors.textTertiary,
+                  opacity: typingAnimation.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.3, 1, 0.3],
+                  }),
+                },
+                { marginLeft: spacing.xs },
+              ]}
+            />
+          </View>
         </View>
       )}
 
@@ -302,35 +426,49 @@ export const ChatThreadScreen: React.FC = () => {
           },
         ]}
       >
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.background,
-              color: colors.text,
-              borderColor: colors.border,
-            },
-          ]}
-          placeholder="Сообщение"
-          placeholderTextColor={colors.textTertiary}
-          value={inputText}
-          onChangeText={handleTextChange}
-          multiline
-          maxLength={4000}
-          editable={!sendMutation.isPending}
-        />
+        <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                color: colors.text,
+              },
+            ]}
+            placeholder="Сообщение"
+            placeholderTextColor={colors.textTertiary}
+            value={inputText}
+            onChangeText={handleTextChange}
+            multiline
+            maxLength={4000}
+            editable={!sendMutation.isPending}
+          />
+          {inputText.trim() && (
+            <TouchableOpacity
+              onPress={() => setInputText('')}
+              style={styles.inputClear}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
         <TouchableOpacity
           style={[
             styles.sendBtn,
             {
               backgroundColor: inputText.trim() ? colors.primary : colors.border,
+              shadowColor: inputText.trim() ? colors.primary : 'transparent',
             },
           ]}
           onPress={handleSend}
           disabled={!inputText.trim() || sendMutation.isPending}
           activeOpacity={0.8}
         >
-          <Ionicons name="send" size={20} color="#fff" />
+          {sendMutation.isPending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="send" size={20} color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -407,31 +545,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
   empty: {
     paddingVertical: spacing.xxl,
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   emptyText: {
     ...typography.caption,
   },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  dateHeaderLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dateHeaderText: {
+    ...typography.captionMuted,
+    fontSize: 11,
+    marginHorizontal: spacing.sm,
+    textTransform: 'capitalize',
+  },
   bubbleWrap: {
-    marginBottom: spacing.sm,
-  },
-  bubbleWrapLeft: {
-    alignItems: 'flex-start',
-  },
-  bubbleWrapRight: {
+    marginBottom: spacing.xs,
+    flexDirection: 'row',
     alignItems: 'flex-end',
   },
+  bubbleWrapLeft: {
+    justifyContent: 'flex-start',
+  },
+  bubbleWrapRight: {
+    justifyContent: 'flex-end',
+  },
+  avatarSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  avatarSmallImage: {
+    width: 20,
+    height: 20,
+  },
+  avatarSpacer: {
+    width: 20,
+    marginRight: spacing.xs,
+  },
   bubble: {
-    maxWidth: '80%',
+    maxWidth: '75%',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   bubbleMine: {
     borderBottomRightRadius: 4,
@@ -441,20 +621,43 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     ...typography.body,
+    lineHeight: 20,
+  },
+  bubbleFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    alignSelf: 'flex-end',
   },
   bubbleTime: {
     ...typography.captionMuted,
     fontSize: 10,
-    marginTop: 2,
-    alignSelf: 'flex-end',
   },
-  typingRow: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 4,
+  readIcon: {
+    marginLeft: 4,
   },
-  typingText: {
-    ...typography.caption,
-    fontStyle: 'italic',
+  typingContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   inputRow: {
     flexDirection: 'row',
@@ -463,15 +666,25 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: spacing.sm,
   },
-  input: {
+  inputWrapper: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
+    minHeight: 44,
+    maxHeight: 120,
+  },
+  input: {
+    flex: 1,
     paddingVertical: spacing.sm,
     ...typography.body,
+    maxHeight: 100,
+  },
+  inputClear: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
   },
   sendBtn: {
     width: 44,
@@ -479,5 +692,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

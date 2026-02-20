@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { colors as themeColors, spacing, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { useQuery } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
+import { socketService } from '../../services/socketService';
 
 interface ConversationItem {
   otherUser: { id: string; username: string; avatarUrl: string | null };
@@ -34,13 +35,20 @@ function formatTime(iso: string): string {
   if (diffMin < 60) return `${diffMin} мин`;
   if (diffH < 24) return `${diffH} ч`;
   if (diffD < 7) return `${diffD} д`;
-  return d.toLocaleDateString();
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.toDateString() === now.toDateString();
 }
 
 export const ChatListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const query = useQuery({
     queryKey: ['messages', 'conversations'],
@@ -49,7 +57,33 @@ export const ChatListScreen: React.FC = () => {
       return (res?.items ?? []) as ConversationItem[];
     },
     retry: 1,
+    staleTime: 5000, // Данные считаются свежими 5 секунд
+    gcTime: 300000, // Кэш хранится 5 минут
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      // Обновляем только если данные устарели (прошло больше 5 секунд)
+      if (query.dataUpdatedAt && Date.now() - query.dataUpdatedAt > 5000) {
+        query.refetch();
+      } else if (!query.data) {
+        // Если данных нет, загружаем
+        query.refetch();
+      }
+    }, [query]),
+  );
+
+  useEffect(() => {
+    // Подписка на события подключения/отключения для отслеживания онлайн статуса
+    // В будущем можно добавить API для получения списка онлайн пользователей
+    const checkOnline = async () => {
+      // Пока просто обновляем список при фокусе
+      if (socketService.isConnected) {
+        // Можно добавить запрос к API для получения онлайн пользователей
+      }
+    };
+    checkOnline();
+  }, []);
 
   const onRefresh = useCallback(() => {
     query.refetch();
@@ -106,32 +140,52 @@ export const ChatListScreen: React.FC = () => {
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.row, { backgroundColor: colors.surface }]}
-              activeOpacity={0.7}
-              onPress={() => openChat(item.otherUser.id)}
-            >
-              <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-                {item.otherUser.avatarUrl ? (
-                  <SmartImage uri={item.otherUser.avatarUrl} style={styles.avatarImage} />
-                ) : (
-                  <Ionicons name="person" size={28} color={colors.textTertiary} />
-                )}
-              </View>
-              <View style={styles.body}>
-                <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
-                  {item.otherUser.username}
-                </Text>
-                <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {item.lastMessage}
-                </Text>
-              </View>
-              <Text style={[styles.time, { color: colors.textTertiary }]}>
-                {formatTime(item.lastAt)}
-              </Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const isOnline = onlineUsers.has(item.otherUser.id);
+            const isRecent = isToday(item.lastAt);
+            
+            return (
+              <TouchableOpacity
+                style={[styles.row, { backgroundColor: colors.surface }]}
+                activeOpacity={0.7}
+                onPress={() => openChat(item.otherUser.id)}
+              >
+                <View style={styles.avatarContainer}>
+                  <View style={[styles.avatar, { backgroundColor: colors.background }]}>
+                    {item.otherUser.avatarUrl ? (
+                      <SmartImage uri={item.otherUser.avatarUrl} style={styles.avatarImage} />
+                    ) : (
+                      <Ionicons name="person" size={28} color={colors.textTertiary} />
+                    )}
+                  </View>
+                  {isOnline && (
+                    <View style={[styles.onlineIndicator, { backgroundColor: colors.primary }]} />
+                  )}
+                </View>
+                <View style={styles.body}>
+                  <View style={styles.bodyHeader}>
+                    <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
+                      {item.otherUser.username}
+                    </Text>
+                    <Text 
+                      style={[
+                        styles.time, 
+                        { 
+                          color: isRecent ? colors.primary : colors.textTertiary,
+                          fontWeight: isRecent ? '600' : '400',
+                        }
+                      ]}
+                    >
+                      {formatTime(item.lastAt)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {item.lastMessage || 'Нет сообщений'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -185,37 +239,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: themeColors.border,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   avatarImage: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: themeColors.surface,
   },
   body: {
     flex: 1,
     minWidth: 0,
   },
+  bodyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   username: {
     ...typography.body,
     fontWeight: '600',
+    flex: 1,
+    marginRight: spacing.sm,
   },
   preview: {
     ...typography.caption,
-    marginTop: 2,
+    lineHeight: 18,
   },
   time: {
     ...typography.captionMuted,
-    marginLeft: spacing.sm,
+    fontSize: 12,
   },
 });
