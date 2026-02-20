@@ -38,20 +38,21 @@ function isLoadableUri(uri: string): boolean {
 
 export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover' }) => {
   const resolved = resolveUri(uri);
-  
-  if (__DEV__ && uri) {
-    console.log('[SmartImage]', { original: uri, resolved, isValid: isLoadableUri(resolved) });
-  }
-  
   if (!resolved || !isLoadableUri(resolved)) {
-    if (__DEV__) {
-      console.warn('[SmartImage] Invalid URI:', { uri, resolved });
-    }
     return (
       <View style={[style, { backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' }]}>
         <Ionicons name="image-outline" size={32} color="#666" />
       </View>
     );
   }
-  return <ExpoImage source={{ uri: resolved }} style={style} contentFit={contentFit} />;
+  return (
+    <ExpoImage
+      source={{ uri: resolved }}
+      style={style}
+      contentFit={contentFit}
+      cachePolicy="memory-disk"
+      transition={200}
+      placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+    />
+  );
 };
