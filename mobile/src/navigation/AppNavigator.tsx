@@ -26,10 +26,8 @@ import { StoriesViewerScreen } from '../screens/StoriesViewer/StoriesViewerScree
 import { GrokChatScreen } from '../screens/Ai/GrokChatScreen';
 import { FollowListScreen } from '../screens/Follow/FollowListScreen';
 import { AuthNavigator } from './AuthNavigator';
-import * as Linking from 'expo-linking';
-
 const linking = {
-  prefixes: [Linking.createURL('/'), 'heirlink://', 'https://api.whakcomp.ru'],
+  prefixes: ['heirlink://', 'https://api.whakcomp.ru'],
   config: {
     screens: {
       Main: {
