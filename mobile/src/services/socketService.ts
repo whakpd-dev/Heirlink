@@ -16,10 +16,11 @@ class SocketService {
 
     this.socket = io(API_URL, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: 10,
+      upgrade: true,
     });
 
     this.socket.on('connect', () => {
