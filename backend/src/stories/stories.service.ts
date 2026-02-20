@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStoryDto } from './dto/create-story.dto';
 
@@ -7,7 +8,19 @@ const USER_SELECT = { id: true, username: true, avatarUrl: true } as const;
 
 @Injectable()
 export class StoriesService {
+  private readonly logger = new Logger(StoriesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupExpiredStories() {
+    const result = await this.prisma.story.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    if (result.count > 0) {
+      this.logger.log(`Cleaned up ${result.count} expired stories`);
+    }
+  }
 
   async create(userId: string, dto: CreateStoryDto) {
     const expiresAt = new Date();
@@ -89,6 +102,44 @@ export class StoriesService {
       expiresAt: s.expiresAt,
       createdAt: s.createdAt,
     }));
+  }
+
+  async markViewed(storyId: string, viewerId: string) {
+    const story = await this.prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) throw new NotFoundException('Story not found');
+    if (story.userId === viewerId) return { viewed: true };
+
+    await this.prisma.$executeRaw`
+      INSERT INTO story_views ("id", "story_id", "viewer_id", "created_at")
+      VALUES (gen_random_uuid(), ${storyId}, ${viewerId}, NOW())
+      ON CONFLICT ("story_id", "viewer_id") DO NOTHING
+    `;
+    return { viewed: true };
+  }
+
+  async getViewers(storyId: string, userId: string) {
+    const story = await this.prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) throw new NotFoundException('Story not found');
+    if (story.userId !== userId) throw new ForbiddenException('Not your story');
+
+    const viewers: Array<{ viewer_id: string; username: string; avatar_url: string | null; created_at: Date }> =
+      await this.prisma.$queryRaw`
+        SELECT sv.viewer_id, u.username, u.avatar_url, sv.created_at
+        FROM story_views sv
+        JOIN users u ON u.id = sv.viewer_id
+        WHERE sv.story_id = ${storyId}
+        ORDER BY sv.created_at DESC
+      `;
+
+    return {
+      items: viewers.map((v) => ({
+        id: v.viewer_id,
+        username: v.username,
+        avatarUrl: v.avatar_url,
+        viewedAt: v.created_at,
+      })),
+      total: viewers.length,
+    };
   }
 
   async remove(storyId: string, userId: string) {

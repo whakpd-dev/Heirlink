@@ -521,15 +521,15 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.statLabel}>публикаций</Text>
           </View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'followers', username: displayName })}>
             <Text style={styles.statValue}>{displayFollowersCount}</Text>
             <Text style={styles.statLabel}>подписчиков</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'following', username: displayName })}>
             <Text style={styles.statValue}>{displayFollowingCount}</Text>
             <Text style={styles.statLabel}>подписок</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Хайлайты */}

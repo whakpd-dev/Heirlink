@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { colors as themeColors, spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
+import { socketService } from '../../services/socketService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
 
@@ -72,13 +73,27 @@ export const ChatThreadScreen: React.FC = () => {
       return (res?.items ?? []) as MessageItem[];
     },
     enabled: !!otherUserId,
-    refetchInterval: 4000,
   });
+
+  useEffect(() => {
+    if (!otherUserId) return;
+    const unsub = socketService.on('newMessage', (msg: any) => {
+      if (msg.senderId === otherUserId || msg.recipientId === otherUserId) {
+        queryClient.setQueryData<MessageItem[]>(['messages', 'with', otherUserId], (old) => {
+          if (!old) return [msg];
+          if (old.some((m) => m.id === msg.id)) return old;
+          return [...old, msg];
+        });
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    });
+    return unsub;
+  }, [otherUserId, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
       if (otherUserId) messagesQuery.refetch();
-    }, [otherUserId, messagesQuery]),
+    }, [otherUserId]),
   );
 
   const sendMutation = useMutation({
@@ -188,8 +203,8 @@ export const ChatThreadScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
     >
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: insets.top }]}>
         <TouchableOpacity

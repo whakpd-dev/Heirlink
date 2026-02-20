@@ -2,11 +2,14 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
   Request,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -55,5 +58,14 @@ export class MessagesController {
       dto.recipientId,
       dto.text.trim(),
     );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteMessage(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    await this.messagesService.deleteMessage(id, req.user.id);
   }
 }

@@ -187,7 +187,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ visible, images, initialIndex
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <View style={viewerStyles.backdrop}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="light-content" backgroundColor="#000" translucent={false} />
 
         {/* Top bar */}
         <View style={[viewerStyles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -653,7 +653,7 @@ export const GrokChatScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
       {/* ─── Header ─── */}

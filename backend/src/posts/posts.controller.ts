@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -13,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
@@ -28,14 +30,16 @@ export class PostsController {
   }
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
+    @Request() req?: { user?: { id: string } },
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 10;
-    return this.postsService.findAll(pageNum, limitNum, undefined, cursor);
+    return this.postsService.findAll(pageNum, limitNum, req?.user?.id, cursor);
   }
 
   @Get('saved')
@@ -83,6 +87,12 @@ export class PostsController {
     @Request() req: { user?: { id: string } },
   ) {
     return this.postsService.findOne(id, req.user?.id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  update(@Param('id') id: string, @Body() dto: UpdatePostDto, @Request() req: { user: { id: string } }) {
+    return this.postsService.update(id, req.user.id, dto);
   }
 
   @Delete(':id')

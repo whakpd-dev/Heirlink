@@ -12,6 +12,7 @@ import { processUploadQueue } from './src/services/uploadQueue';
 import * as Sentry from '@sentry/react-native';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { apiService } from './src/services/api';
+import { socketService } from './src/services/socketService';
 import { useToast } from './src/context/ToastContext';
 
 const ApiErrorNotifier: React.FC = () => {
@@ -28,8 +29,12 @@ export default function App() {
       onlineManager.setOnline(Boolean(state.isConnected));
       if (state.isConnected) {
         processUploadQueue();
+        socketService.connect();
+      } else {
+        socketService.disconnect();
       }
     });
+    socketService.connect();
     const t = setTimeout(() => {
       try {
         const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
@@ -43,6 +48,7 @@ export default function App() {
     return () => {
       clearTimeout(t);
       unsubscribe();
+      socketService.disconnect();
     };
   }, []);
 

@@ -40,6 +40,19 @@ export class StoriesController {
     return this.storiesService.getFeed(req.user.id);
   }
 
+  @Post(':id/view')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  markViewed(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.storiesService.markViewed(id, req.user.id);
+  }
+
+  @Get(':id/viewers')
+  @UseGuards(JwtAuthGuard)
+  getViewers(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.storiesService.getViewers(id, req.user.id);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)

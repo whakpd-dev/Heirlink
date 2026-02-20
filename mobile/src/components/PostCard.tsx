@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  FlatList,
+  ViewToken,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,27 +58,30 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
 
   const handleLike = useCallback(async () => {
     if (!post?.id) return;
+    const prev = isLiked;
+    const next = !prev;
+    setIsLiked(next);
+    setLikesCount((c) => (next ? c + 1 : Math.max(0, c - 1)));
+    onLikeChange?.(post.id, next);
     try {
       await apiService.likePost(post.id);
-      const next = !isLiked;
-      setIsLiked(next);
-      setLikesCount((c) => (next ? c + 1 : Math.max(0, c - 1)));
-      onLikeChange?.(post.id, next);
     } catch {
-      // ignore
+      setIsLiked(prev);
+      setLikesCount((c) => (prev ? c + 1 : Math.max(0, c - 1)));
     }
   }, [post?.id, isLiked, onLikeChange]);
 
   const handleSave = useCallback(async () => {
     if (!post?.id) return;
+    const prev = isSaved;
+    const next = !prev;
+    setIsSaved(next);
+    onSaveChange?.(post.id, next);
     try {
-      if (isSaved) await apiService.unsavePost(post.id);
+      if (prev) await apiService.unsavePost(post.id);
       else await apiService.savePost(post.id);
-      const next = !isSaved;
-      setIsSaved(next);
-      onSaveChange?.(post.id, next);
     } catch {
-      // ignore
+      setIsSaved(prev);
     }
   }, [post?.id, isSaved, onSaveChange]);
 
@@ -105,8 +110,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
 
   const user = post?.user;
   const username = user?.username ?? '?';
-  const firstMedia = post?.media?.[0];
+  const mediaList = post?.media ?? [];
   const timeStr = post?.createdAt ? formatTime(post.createdAt) : '';
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveMediaIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -133,16 +147,46 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.media} activeOpacity={1} onPress={handlePress}>
-        {firstMedia?.url ? (
-          <SmartImage uri={firstMedia.url} style={styles.mediaImage} />
-        ) : (
-          <View style={styles.mediaPlaceholder}>
-            <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
-            <Text style={styles.mediaLabel}>Фото</Text>
+      {mediaList.length > 1 ? (
+        <View>
+          <FlatList
+            data={mediaList}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, i) => item.url || String(i)}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.media} activeOpacity={1} onPress={handlePress}>
+                <SmartImage uri={item.url} style={styles.mediaImage} />
+              </TouchableOpacity>
+            )}
+          />
+          <View style={styles.dotsRow}>
+            {mediaList.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  { backgroundColor: i === activeMediaIndex ? colors.primary : colors.border },
+                ]}
+              />
+            ))}
           </View>
-        )}
-      </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.media} activeOpacity={1} onPress={handlePress}>
+          {mediaList[0]?.url ? (
+            <SmartImage uri={mediaList[0].url} style={styles.mediaImage} />
+          ) : (
+            <View style={styles.mediaPlaceholder}>
+              <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
+              <Text style={styles.mediaLabel}>Фото</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
 
       <View style={styles.actions}>
         <View style={styles.actionsLeft}>
@@ -247,9 +291,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   media: {
-    width: '100%',
+    width: SCREEN_WIDTH - CARD_PADDING * 2,
     aspectRatio: 1,
     backgroundColor: themeColors.background,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   mediaImage: {
     width: '100%',

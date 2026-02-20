@@ -130,29 +130,7 @@ export class SmartAlbumService {
     if (job.userId !== userId) throw new ForbiddenException('Not your job');
 
     if (job.status === 'processing' && job.aiTaskId) {
-      try {
-        const res = await fetch(
-          `${this.aiServiceUrl}/api/task/${encodeURIComponent(job.aiTaskId)}`,
-        );
-        if (res.ok) {
-          const data = (await res.json()) as { status?: string };
-          if (data.status === 'completed') {
-            const item = await this.prisma.smartAlbumItem.create({
-              data: {
-                userId: job.userId,
-                originalMediaId: job.mediaUrl,
-              },
-            });
-            await this.prisma.smartAlbumJob.update({
-              where: { id: jobId },
-              data: { status: 'done', resultItemId: item.id },
-            });
-            return this.getJob(jobId, userId);
-          }
-        }
-      } catch {
-        // keep current status
-      }
+      this.checkAiTaskStatus(jobId, job.aiTaskId, job.userId, job.mediaUrl).catch(() => {});
     }
 
     return {
@@ -162,6 +140,36 @@ export class SmartAlbumService {
       errorMessage: job.errorMessage ?? undefined,
       createdAt: job.createdAt,
     };
+  }
+
+  private async checkAiTaskStatus(jobId: string, aiTaskId: string, userId: string, mediaUrl: string) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(
+        `${this.aiServiceUrl}/api/task/${encodeURIComponent(aiTaskId)}`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timeout);
+
+      if (!res.ok) return;
+      const data = (await res.json()) as { status?: string; analysis?: Record<string, unknown> };
+      if (data.status !== 'completed') return;
+
+      const item = await this.prisma.smartAlbumItem.create({
+        data: {
+          userId,
+          originalMediaId: mediaUrl,
+          aiAnalysis: (data.analysis ?? {}) as object,
+        },
+      });
+      await this.prisma.smartAlbumJob.update({
+        where: { id: jobId },
+        data: { status: 'done', resultItemId: item.id },
+      });
+    } catch {
+      // Non-blocking: status will update on next poll
+    }
   }
 
   async getItems(userId: string, page: number = 1, limit: number = 20) {

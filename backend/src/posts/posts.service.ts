@@ -223,6 +223,29 @@ export class PostsService {
     };
   }
 
+  async update(id: string, userId: string, data: { caption?: string; location?: string }) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post || post.isDeleted) throw new NotFoundException('Post not found');
+    if (post.userId !== userId) throw new ForbiddenException('You can only edit your own posts');
+
+    const updated = await this.prisma.post.update({
+      where: { id },
+      data: { caption: data.caption, location: data.location },
+      include: {
+        user: { select: { id: true, username: true, avatarUrl: true } },
+        media: { orderBy: { order: 'asc' } },
+        _count: { select: { likes: true, comments: true } },
+      },
+    });
+
+    return {
+      ...updated,
+      likesCount: updated._count.likes,
+      commentsCount: updated._count.comments,
+      _count: undefined,
+    };
+  }
+
   async delete(id: string, userId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },

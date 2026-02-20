@@ -287,7 +287,7 @@ export class UsersService {
       where: { id: { in: sorted } },
       select: {
         ...LIST_USER_SELECT,
-        _count: { select: { following: true } },
+        _count: { select: { followers: true } },
       },
     });
     const byId = new Map(users.map((u) => [u.id, u]));
@@ -298,7 +298,7 @@ export class UsersService {
         id: u.id,
         username: u.username,
         avatarUrl: u.avatarUrl,
-        followersCount: u._count?.following ?? 0,
+        followersCount: u._count?.followers ?? 0,
       }));
 
     return { items };
@@ -311,9 +311,9 @@ export class UsersService {
         id: true,
         username: true,
         avatarUrl: true,
-        _count: { select: { following: true } },
+        _count: { select: { followers: true } },
       },
-      orderBy: { following: { _count: 'desc' } },
+      orderBy: { followers: { _count: 'desc' } },
       take: limit,
     });
     return {
@@ -321,7 +321,7 @@ export class UsersService {
         id: u.id,
         username: u.username,
         avatarUrl: u.avatarUrl,
-        followersCount: u._count.following,
+        followersCount: u._count.followers,
       })),
     };
   }

@@ -1,12 +1,13 @@
-import { IsString, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class MediaDto {
   @IsString()
-  url: string;
+  url!: string;
 
   @IsString()
-  type: 'photo' | 'video';
+  @IsIn(['photo', 'video'])
+  type!: 'photo' | 'video';
 
   @IsOptional()
   @IsString()
@@ -23,7 +24,9 @@ export class CreatePostDto {
   location?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
   @ValidateNested({ each: true })
   @Type(() => MediaDto)
-  media: MediaDto[];
+  media!: MediaDto[];
 }

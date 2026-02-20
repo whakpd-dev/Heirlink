@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 
+const MAX_MEMORY_ENTRIES = 5000;
+
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
@@ -45,6 +47,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     if (this.redis) {
       await this.redis.set(key, serialized, 'EX', ttlSeconds);
     } else {
+      if (this.memory.size >= MAX_MEMORY_ENTRIES) {
+        const firstKey = this.memory.keys().next().value;
+        if (firstKey != null) this.memory.delete(firstKey);
+      }
       this.memory.set(key, serialized);
       if (ttlSeconds > 0) {
         setTimeout(() => this.memory.delete(key), ttlSeconds * 1000).unref?.();

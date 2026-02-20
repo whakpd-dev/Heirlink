@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Get, Param, UseGuards, Res, HttpCode } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AiService } from './ai.service';
 import { ChatCompletionDto } from './dto/chat-completion.dto';
@@ -7,6 +8,7 @@ import { GenerateVideoDto } from './dto/generate-video.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('ai')
+@Throttle({ short: { ttl: 60000, limit: 10 } })
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 

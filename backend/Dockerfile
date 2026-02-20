@@ -33,5 +33,10 @@ RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 
-# Миграции применяются при старте контейнера (нужен DATABASE_URL)
-CMD npx prisma migrate deploy && node dist/main.js
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

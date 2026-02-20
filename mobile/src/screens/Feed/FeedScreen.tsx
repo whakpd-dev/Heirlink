@@ -72,7 +72,7 @@ export const FeedScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom, backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.background === '#0F0F0F' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
+      <StatusBar barStyle={colors.background === '#0F0F0F' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} translucent={false} />
       <FeedHeader />
       {feedQuery.isLoading && posts.length === 0 ? (
         <View style={styles.loading}>

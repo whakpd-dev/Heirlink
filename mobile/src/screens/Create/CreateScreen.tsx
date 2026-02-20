@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -50,7 +51,14 @@ export const CreateScreen: React.FC = () => {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Доступ', 'Нужен доступ к галерее для выбора фото.');
+      Alert.alert(
+        'Доступ к галерее',
+        'HeirLink нужен доступ к галерее для выбора фото. Откройте настройки чтобы разрешить доступ.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { text: 'Настройки', onPress: () => Linking.openSettings() },
+        ],
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -72,7 +80,14 @@ export const CreateScreen: React.FC = () => {
     }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Доступ', 'Нужен доступ к камере.');
+      Alert.alert(
+        'Доступ к камере',
+        'HeirLink нужен доступ к камере для создания фото. Откройте настройки чтобы разрешить доступ.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { text: 'Настройки', onPress: () => Linking.openSettings() },
+        ],
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({

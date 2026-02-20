@@ -24,7 +24,27 @@ import { SmartAlbumItemScreen } from '../screens/SmartAlbum/SmartAlbumItemScreen
 import { LocalMediaScreen } from '../screens/LocalMedia/LocalMediaScreen';
 import { StoriesViewerScreen } from '../screens/StoriesViewer/StoriesViewerScreen';
 import { GrokChatScreen } from '../screens/Ai/GrokChatScreen';
+import { FollowListScreen } from '../screens/Follow/FollowListScreen';
 import { AuthNavigator } from './AuthNavigator';
+import * as Linking from 'expo-linking';
+
+const linking = {
+  prefixes: [Linking.createURL('/'), 'heirlink://', 'https://api.whakcomp.ru'],
+  config: {
+    screens: {
+      Main: {
+        screens: {
+          FeedTab: {
+            screens: {
+              PostDetail: 'post/:postId',
+              Profile: 'profile/:userId',
+            },
+          },
+        },
+      },
+    },
+  },
+};
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../theme';
 
@@ -42,6 +62,7 @@ const FeedStack = () => (
     <FeedStackNav.Screen name="StoriesViewer" component={StoriesViewerScreen} />
     <FeedStackNav.Screen name="Activity" component={ActivityScreen} />
     <FeedStackNav.Screen name="Profile" component={ProfileScreen} />
+    <FeedStackNav.Screen name="FollowList" component={FollowListScreen} />
   </FeedStackNav.Navigator>
 );
 
@@ -50,6 +71,7 @@ const ExploreStack = () => (
     <ExploreStackNav.Screen name="Explore" component={ExploreScreen} />
     <ExploreStackNav.Screen name="Profile" component={ProfileScreen} />
     <ExploreStackNav.Screen name="PostDetail" component={PostDetailScreen} />
+    <ExploreStackNav.Screen name="FollowList" component={FollowListScreen} />
   </ExploreStackNav.Navigator>
 );
 
@@ -71,6 +93,7 @@ const ProfileStack = () => (
     <ProfileStackNav.Screen name="SmartAlbum" component={SmartAlbumScreen} />
     <ProfileStackNav.Screen name="SmartAlbumItem" component={SmartAlbumItemScreen} />
     <ProfileStackNav.Screen name="LocalMedia" component={LocalMediaScreen} />
+    <ProfileStackNav.Screen name="FollowList" component={FollowListScreen} />
   </ProfileStackNav.Navigator>
 );
 
@@ -190,7 +213,7 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <RootStack.Screen name="Main" component={MainTabs} />

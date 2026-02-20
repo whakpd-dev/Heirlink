@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueueService } from '../queue/queue.service';
+import { AppGateway } from '../gateway/app.gateway';
 
 export type NotificationType = 'like' | 'comment' | 'follow' | 'comment_reply';
 
@@ -20,6 +21,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly queueService: QueueService,
+    private readonly gateway: AppGateway,
   ) {}
 
   /**
@@ -40,7 +42,21 @@ export class NotificationsService {
         postId: dto.postId ?? undefined,
         commentId: dto.commentId ?? undefined,
       },
+      include: {
+        actor: { select: ACTOR_SELECT },
+      },
     });
+
+    this.gateway.emitToUser(dto.userId, 'newNotification', {
+      id: n.id,
+      type: n.type,
+      actor: n.actor,
+      postId: n.postId,
+      commentId: n.commentId,
+      read: n.read,
+      createdAt: n.createdAt,
+    });
+
     return n;
   }
 

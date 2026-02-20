@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -18,6 +19,7 @@ import { MessagesModule } from './messages/messages.module';
 import { AiModule } from './ai/ai.module';
 import { CacheModule } from './cache/cache.module';
 import { QueueModule } from './queue/queue.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   imports: [
@@ -28,6 +30,7 @@ import { QueueModule } from './queue/queue.module';
       { name: 'short', ttl: 1000, limit: 10 },
       { name: 'long', ttl: 60000, limit: 200 },
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     PostsModule,
@@ -42,6 +45,7 @@ import { QueueModule } from './queue/queue.module';
     AiModule,
     CacheModule,
     QueueModule,
+    GatewayModule,
   ],
   controllers: [AppController],
   providers: [

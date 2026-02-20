@@ -41,7 +41,7 @@ export class UploadController {
     if (!UPLOAD_TYPES.includes(type)) {
       throw new BadRequestException(`Invalid type. Allowed: ${UPLOAD_TYPES.join(', ')}`);
     }
-    this.uploadService.validateFile(file.mimetype, file.size, type);
+    this.uploadService.validateFile(file.mimetype, file.size, type, file.buffer);
     return this.uploadService.saveFile(file, type);
   }
 

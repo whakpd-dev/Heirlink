@@ -1,73 +1,64 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppGateway } from '../gateway/app.gateway';
 
 const USER_SELECT = { id: true, username: true, avatarUrl: true } as const;
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: AppGateway,
+  ) {}
 
   /**
-   * Список диалогов (последнее сообщение с каждым пользователем)
+   * Список диалогов (последнее сообщение с каждым пользователем).
+   * Uses DISTINCT ON at the DB level for efficient pagination.
    */
   async getConversations(userId: string, page: number = 1, limit: number = 50) {
     const limitClamped = Math.min(Math.max(limit, 1), 100);
     const skip = (page - 1) * limitClamped;
 
-    const sent = await this.prisma.message.findMany({
-      where: { senderId: userId },
-      distinct: ['recipientId'],
-      orderBy: { createdAt: 'desc' },
-      include: {
-        recipient: { select: USER_SELECT },
-      },
-    });
+    const rows: Array<{
+      other_id: string;
+      last_text: string;
+      last_at: Date;
+      other_username: string;
+      other_avatar: string | null;
+    }> = await this.prisma.$queryRaw`
+      WITH conversations AS (
+        SELECT
+          CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END AS other_id,
+          m.text AS last_text,
+          m."createdAt" AS last_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END
+            ORDER BY m."createdAt" DESC
+          ) AS rn
+        FROM "Message" m
+        WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
+      )
+      SELECT c.other_id, c.last_text, c.last_at,
+             u.username AS other_username, u."avatarUrl" AS other_avatar
+      FROM conversations c
+      JOIN "User" u ON u.id = c.other_id
+      WHERE c.rn = 1
+      ORDER BY c.last_at DESC
+      LIMIT ${limitClamped} OFFSET ${skip}
+    `;
 
-    const received = await this.prisma.message.findMany({
-      where: { recipientId: userId },
-      distinct: ['senderId'],
-      orderBy: { createdAt: 'desc' },
-      include: {
-        sender: { select: USER_SELECT },
-      },
-    });
+    const countResult: Array<{ cnt: bigint }> = await this.prisma.$queryRaw`
+      SELECT COUNT(DISTINCT CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END)::bigint AS cnt
+      FROM "Message" m
+      WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
+    `;
+    const total = Number(countResult[0]?.cnt ?? 0);
 
-    const byOtherId = new Map<
-      string,
-      { other: { id: string; username: string; avatarUrl: string | null }; lastMessage: string; lastAt: Date }
-    >();
-
-    for (const m of sent) {
-      const existing = byOtherId.get(m.recipientId);
-      if (!existing || m.createdAt > existing.lastAt) {
-        byOtherId.set(m.recipientId, {
-          other: m.recipient,
-          lastMessage: m.text,
-          lastAt: m.createdAt,
-        });
-      }
-    }
-    for (const m of received) {
-      const existing = byOtherId.get(m.senderId);
-      if (!existing || m.createdAt > existing.lastAt) {
-        byOtherId.set(m.senderId, {
-          other: m.sender,
-          lastMessage: m.text,
-          lastAt: m.createdAt,
-        });
-      }
-    }
-
-    const list = Array.from(byOtherId.entries())
-      .map(([otherId, v]) => ({
-        otherUser: v.other,
-        lastMessage: v.lastMessage,
-        lastAt: v.lastAt,
-      }))
-      .sort((a, b) => b.lastAt.getTime() - a.lastAt.getTime());
-
-    const total = list.length;
-    const items = list.slice(skip, skip + limitClamped);
+    const items = rows.map((r) => ({
+      otherUser: { id: r.other_id, username: r.other_username, avatarUrl: r.other_avatar },
+      lastMessage: r.last_text,
+      lastAt: r.last_at,
+    }));
 
     return {
       items,
@@ -161,7 +152,7 @@ export class MessagesService {
       },
     });
 
-    return {
+    const result = {
       id: message.id,
       senderId: message.senderId,
       recipientId: message.recipientId,
@@ -170,5 +161,23 @@ export class MessagesService {
       sender: message.sender,
       isFromMe: true,
     };
+
+    this.gateway.emitToUser(recipientId, 'newMessage', {
+      ...result,
+      isFromMe: false,
+    });
+
+    return result;
+  }
+
+  async deleteMessage(messageId: string, userId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+    if (!message) throw new BadRequestException('Message not found');
+    if (message.senderId !== userId) throw new ForbiddenException('You can only delete your own messages');
+    await this.prisma.message.delete({ where: { id: messageId } });
+
+    this.gateway.emitToUser(message.recipientId, 'messageDeleted', { id: messageId });
   }
 }
