@@ -18,10 +18,14 @@ import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { AppGateway } from '../gateway/app.gateway';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly gateway: AppGateway,
+  ) {}
 
   /**
    * Текущий пользователь (как GET /auth/me). Должен быть до GET /:id.
@@ -114,6 +118,12 @@ export class UsersController {
    * Публичный профиль пользователя. Без токена — без isFollowing/isViewer.
    * С токеном — добавляются isFollowing и isViewer.
    */
+  @Get(':id/online')
+  @UseGuards(JwtAuthGuard)
+  getOnlineStatus(@Param('id') id: string) {
+    return { userId: id, online: this.gateway.isUserOnline(id) };
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   getById(

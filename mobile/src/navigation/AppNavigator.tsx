@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSelector, useDispatch } from 'react-redux';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { socketService } from '../services/socketService';
 import { RootState, AppDispatch } from '../store/store';
 import { checkAuth, logout } from '../store/authSlice';
 import { apiService } from '../services/api';
@@ -97,6 +98,19 @@ const ProfileStack = () => (
 
 const MainTabs = () => {
   const { colors } = useTheme();
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  useEffect(() => {
+    const unsubMsg = socketService.on('newMessage', () => {
+      setUnreadMessages((c) => c + 1);
+    });
+    const unsubNotif = socketService.on('newNotification', () => {
+      setUnreadNotifs((c) => c + 1);
+    });
+    return () => { unsubMsg(); unsubNotif(); };
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -122,6 +136,8 @@ const MainTabs = () => {
         component={FeedStack}
         options={{
           tabBarLabel: 'Лента',
+          tabBarBadge: unreadNotifs > 0 ? unreadNotifs : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#FF3B30', fontSize: 10 },
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
               name={focused ? 'home' : 'home-outline'}
@@ -129,6 +145,9 @@ const MainTabs = () => {
               color={color}
             />
           ),
+        }}
+        listeners={{
+          tabPress: () => setUnreadNotifs(0),
         }}
       />
       <Tab.Screen
@@ -160,6 +179,8 @@ const MainTabs = () => {
         component={ChatStack}
         options={{
           tabBarLabel: 'Чаты',
+          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary || '#FF3B30', fontSize: 10 },
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
               name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
@@ -167,6 +188,9 @@ const MainTabs = () => {
               color={color}
             />
           ),
+        }}
+        listeners={{
+          tabPress: () => setUnreadMessages(0),
         }}
       />
       <Tab.Screen

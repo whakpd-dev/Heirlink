@@ -56,6 +56,8 @@ export const ChatThreadScreen: React.FC = () => {
   })();
   const otherUserId = (paramFromRoute ?? paramFromNavState) != null ? String(paramFromRoute ?? paramFromNavState).trim() : undefined;
   const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const userQuery = useQuery({
@@ -77,7 +79,7 @@ export const ChatThreadScreen: React.FC = () => {
 
   useEffect(() => {
     if (!otherUserId) return;
-    const unsub = socketService.on('newMessage', (msg: any) => {
+    const unsubMsg = socketService.on('newMessage', (msg: any) => {
       if (msg.senderId === otherUserId || msg.recipientId === otherUserId) {
         queryClient.setQueryData<MessageItem[]>(['messages', 'with', otherUserId], (old) => {
           if (!old) return [msg];
@@ -87,8 +89,27 @@ export const ChatThreadScreen: React.FC = () => {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       }
     });
-    return unsub;
+    const unsubTyping = socketService.on('typing', (data: any) => {
+      if (data.userId === otherUserId) setIsTyping(true);
+    });
+    const unsubStopTyping = socketService.on('stopTyping', (data: any) => {
+      if (data.userId === otherUserId) setIsTyping(false);
+    });
+    return () => { unsubMsg(); unsubTyping(); unsubStopTyping(); };
   }, [otherUserId, queryClient]);
+
+  const handleTextChange = useCallback((text: string) => {
+    setInputText(text);
+    if (otherUserId && text.length > 0) {
+      socketService.emit('typing', { recipientId: otherUserId });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socketService.emit('stopTyping', { recipientId: otherUserId });
+      }, 2000);
+    } else if (otherUserId) {
+      socketService.emit('stopTyping', { recipientId: otherUserId });
+    }
+  }, [otherUserId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -214,16 +235,23 @@ export const ChatThreadScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-          {otherUser?.avatarUrl ? (
-            <SmartImage uri={otherUser.avatarUrl} style={styles.avatarImage} />
-          ) : (
-            <Ionicons name="person" size={24} color={colors.textTertiary} />
+        <View style={styles.avatarWrap}>
+          <View style={[styles.avatar, { backgroundColor: colors.background }]}>
+            {otherUser?.avatarUrl ? (
+              <SmartImage uri={otherUser.avatarUrl} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={24} color={colors.textTertiary} />
+            )}
+          </View>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+            {username}
+          </Text>
+          {isTyping && (
+            <Text style={[styles.headerSubtitle, { color: colors.primary }]}>печатает...</Text>
           )}
         </View>
-        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          {username}
-        </Text>
       </View>
 
       {messagesQuery.isError && messages.length === 0 ? (
@@ -255,6 +283,14 @@ export const ChatThreadScreen: React.FC = () => {
         />
       )}
 
+      {isTyping && (
+        <View style={[styles.typingRow, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.typingText, { color: colors.textTertiary }]}>
+            {otherUser?.username ?? 'Собеседник'} печатает...
+          </Text>
+        </View>
+      )}
+
       <View
         style={[
           styles.inputRow,
@@ -278,7 +314,7 @@ export const ChatThreadScreen: React.FC = () => {
           placeholder="Сообщение"
           placeholderTextColor={colors.textTertiary}
           value={inputText}
-          onChangeText={setInputText}
+          onChangeText={handleTextChange}
           multiline
           maxLength={4000}
           editable={!sendMutation.isPending}
@@ -342,6 +378,9 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginRight: spacing.xs,
   },
+  avatarWrap: {
+    marginRight: spacing.sm,
+  },
   avatar: {
     width: 36,
     height: 36,
@@ -349,7 +388,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.sm,
   },
   avatarImage: {
     width: 36,
@@ -358,7 +396,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...typography.body,
     fontWeight: '600',
-    flex: 1,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    marginTop: 1,
   },
   loading: {
     flex: 1,
@@ -406,6 +447,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 2,
     alignSelf: 'flex-end',
+  },
+  typingRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 4,
+  },
+  typingText: {
+    ...typography.caption,
+    fontStyle: 'italic',
   },
   inputRow: {
     flexDirection: 'row',

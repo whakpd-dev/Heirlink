@@ -60,6 +60,10 @@ class SocketService {
     this.socket?.off(event, handler);
   }
 
+  emit(event: string, data: any) {
+    this.socket?.emit(event, data);
+  }
+
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
   }

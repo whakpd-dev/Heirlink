@@ -8,6 +8,8 @@ import {
   Platform,
   FlatList,
   ViewToken,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,6 +110,27 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     }
   }, [post?.userId, post?.user?.id, post?.id, post?.user, navigation]);
 
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const lastTapRef = useRef(0);
+
+  const handleDoubleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      if (!isLiked && post?.id) {
+        handleLike();
+      }
+      heartOpacity.setValue(1);
+      heartScale.setValue(0);
+      Animated.sequence([
+        Animated.spring(heartScale, { toValue: 1, friction: 3, useNativeDriver: true }),
+        Animated.delay(400),
+        Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+    lastTapRef.current = now;
+  }, [isLiked, post?.id, handleLike, heartScale, heartOpacity]);
+
   const user = post?.user;
   const username = user?.username ?? '?';
   const mediaList = post?.media ?? [];
@@ -147,46 +170,57 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         </TouchableOpacity>
       </View>
 
-      {mediaList.length > 1 ? (
-        <View>
-          <FlatList
-            data={mediaList}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item, i) => item.url || String(i)}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.media} activeOpacity={1} onPress={handlePress}>
-                <SmartImage uri={item.url} style={styles.mediaImage} />
-              </TouchableOpacity>
-            )}
-          />
-          <View style={styles.dotsRow}>
-            {mediaList.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  { backgroundColor: i === activeMediaIndex ? colors.primary : colors.border },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.media} activeOpacity={1} onPress={handlePress}>
-          {mediaList[0]?.url ? (
-            <SmartImage uri={mediaList[0].url} style={styles.mediaImage} />
-          ) : (
-            <View style={styles.mediaPlaceholder}>
-              <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
-              <Text style={styles.mediaLabel}>Фото</Text>
+      <Pressable onPress={handleDoubleTap}>
+        {mediaList.length > 1 ? (
+          <View>
+            <FlatList
+              data={mediaList}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, i) => item.url || String(i)}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              renderItem={({ item }) => (
+                <View style={styles.media}>
+                  <SmartImage uri={item.url} style={styles.mediaImage} />
+                </View>
+              )}
+            />
+            <View style={styles.dotsRow}>
+              {mediaList.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    { backgroundColor: i === activeMediaIndex ? colors.primary : colors.border },
+                  ]}
+                />
+              ))}
             </View>
-          )}
-        </TouchableOpacity>
-      )}
+          </View>
+        ) : (
+          <View style={styles.media}>
+            {mediaList[0]?.url ? (
+              <SmartImage uri={mediaList[0].url} style={styles.mediaImage} />
+            ) : (
+              <View style={styles.mediaPlaceholder}>
+                <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
+                <Text style={styles.mediaLabel}>Фото</Text>
+              </View>
+            )}
+          </View>
+        )}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.heartOverlay,
+            { opacity: heartOpacity, transform: [{ scale: heartScale }] },
+          ]}
+        >
+          <Ionicons name="heart" size={80} color="#fff" />
+        </Animated.View>
+      </Pressable>
 
       <View style={styles.actions}>
         <View style={styles.actionsLeft}>
@@ -306,6 +340,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  heartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mediaImage: {
     width: '100%',

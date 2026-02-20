@@ -3,6 +3,9 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
@@ -61,11 +64,37 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { recipientId: string },
+  ) {
+    const userId = (client as any).userId as string | undefined;
+    if (userId && data?.recipientId) {
+      this.server.to(`user:${data.recipientId}`).emit('typing', { userId });
+    }
+  }
+
+  @SubscribeMessage('stopTyping')
+  handleStopTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { recipientId: string },
+  ) {
+    const userId = (client as any).userId as string | undefined;
+    if (userId && data?.recipientId) {
+      this.server.to(`user:${data.recipientId}`).emit('stopTyping', { userId });
+    }
+  }
+
   emitToUser(userId: string, event: string, data: unknown) {
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
   isUserOnline(userId: string): boolean {
     return this.userSockets.has(userId);
+  }
+
+  getOnlineUserIds(): string[] {
+    return Array.from(this.userSockets.keys());
   }
 }
