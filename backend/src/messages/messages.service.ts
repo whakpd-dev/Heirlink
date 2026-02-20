@@ -28,15 +28,15 @@ export class MessagesService {
     }> = await this.prisma.$queryRaw`
       WITH conversations AS (
         SELECT
-          CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END AS other_id,
+          CASE WHEN m.sender_id = ${userId} THEN m.recipient_id ELSE m.sender_id END AS other_id,
           m.text AS last_text,
-          m."createdAt" AS last_at,
+          m.created_at AS last_at,
           ROW_NUMBER() OVER (
-            PARTITION BY CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END
-            ORDER BY m."createdAt" DESC
+            PARTITION BY CASE WHEN m.sender_id = ${userId} THEN m.recipient_id ELSE m.sender_id END
+            ORDER BY m.created_at DESC
           ) AS rn
         FROM messages m
-        WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
+        WHERE m.sender_id = ${userId} OR m.recipient_id = ${userId}
       )
       SELECT c.other_id, c.last_text, c.last_at,
              u.username AS other_username, u.avatar_url AS other_avatar
@@ -48,9 +48,9 @@ export class MessagesService {
     `;
 
     const countResult: Array<{ cnt: bigint }> = await this.prisma.$queryRaw`
-      SELECT COUNT(DISTINCT CASE WHEN m."senderId" = ${userId} THEN m."recipientId" ELSE m."senderId" END)::bigint AS cnt
+      SELECT COUNT(DISTINCT CASE WHEN m.sender_id = ${userId} THEN m.recipient_id ELSE m.sender_id END)::bigint AS cnt
       FROM messages m
-      WHERE m."senderId" = ${userId} OR m."recipientId" = ${userId}
+      WHERE m.sender_id = ${userId} OR m.recipient_id = ${userId}
     `;
     const total = Number(countResult[0]?.cnt ?? 0);
 
