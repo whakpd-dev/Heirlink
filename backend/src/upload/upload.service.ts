@@ -146,6 +146,7 @@ export class UploadService {
           Key: key,
           Body: body,
           ContentType: file.mimetype,
+          ACL: 'public-read',
         }),
       );
     } else {

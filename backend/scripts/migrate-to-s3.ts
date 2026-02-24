@@ -56,6 +56,7 @@ async function main() {
       Key: key,
       Body: body,
       ContentType: contentType,
+      ACL: 'public-read',
     }));
     console.log(`  UPLOADED: ${key} (${(body.length / 1024).toFixed(1)} KB)`);
     return true;
