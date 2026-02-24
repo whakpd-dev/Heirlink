@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Query, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('reports')
 export class ReportsController {
