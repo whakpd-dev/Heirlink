@@ -22,6 +22,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { SmartImage } from '../../components/SmartImage';
+import { VideoPlayer } from '../../components/VideoPlayer';
+import { ResizeMode } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const STORY_DURATION = 5000;
@@ -285,9 +287,26 @@ export const StoriesViewerScreen: React.FC = () => {
       {/* Story image */}
       <View style={styles.mediaContainer}>
         {current?.type === 'video' ? (
-          <View style={[styles.mediaPlaceholder]}>
-            <Ionicons name="videocam-outline" size={64} color="rgba(255,255,255,0.5)" />
-          </View>
+          <VideoPlayer
+            uri={current.mediaUrl}
+            style={styles.media}
+            autoPlay
+            muted={false}
+            resizeMode={ResizeMode.CONTAIN}
+            onDurationChange={(ms) => {
+              // Use the video's actual duration for progress
+              timerRef.current?.stop();
+              progressAnim.setValue(0);
+              const anim = Animated.timing(progressAnim, {
+                toValue: 1,
+                duration: ms,
+                useNativeDriver: false,
+              });
+              timerRef.current = anim;
+              anim.start(({ finished }) => { if (finished) goNext(); });
+            }}
+            onPlaybackFinish={goNext}
+          />
         ) : current?.mediaUrl ? (
           <SmartImage
             uri={current.mediaUrl}

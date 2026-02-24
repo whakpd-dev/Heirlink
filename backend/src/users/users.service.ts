@@ -325,4 +325,39 @@ export class UsersService {
       })),
     };
   }
+
+  async blockUser(blockerId: string, blockedId: string) {
+    if (blockerId === blockedId) throw new BadRequestException('Нельзя заблокировать себя');
+    const existing = await this.prisma.block.findUnique({
+      where: { blockerId_blockedId: { blockerId, blockedId } },
+    });
+    if (existing) return { blocked: true };
+    await this.prisma.block.create({ data: { blockerId, blockedId } });
+    // Also unfollow in both directions
+    await this.prisma.follow.deleteMany({
+      where: { OR: [{ followerId: blockerId, followingId: blockedId }, { followerId: blockedId, followingId: blockerId }] },
+    });
+    return { blocked: true };
+  }
+
+  async unblockUser(blockerId: string, blockedId: string) {
+    await this.prisma.block.deleteMany({ where: { blockerId, blockedId } });
+    return { blocked: false };
+  }
+
+  async getBlockedUsers(userId: string) {
+    const blocks = await this.prisma.block.findMany({
+      where: { blockerId: userId },
+      include: { blocked: { select: { id: true, username: true, avatarUrl: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return blocks.map((b) => b.blocked);
+  }
+
+  async isBlocked(userId1: string, userId2: string): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: { OR: [{ blockerId: userId1, blockedId: userId2 }, { blockerId: userId2, blockedId: userId1 }] },
+    });
+    return !!block;
+  }
 }

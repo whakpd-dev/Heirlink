@@ -9,19 +9,31 @@ import {
   ViewToken,
   Animated,
   Pressable,
+  Alert,
+  Share,
+  Platform,
+  ActionSheetIOS,
+  TextInput,
+  Modal,
+  Clipboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
+import { useQueryClient } from '@tanstack/react-query';
 import { Post } from '../types/index';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, radius, typography } from '../theme';
 import { apiService } from '../services/api';
 import { SmartImage } from './SmartImage';
+import { MediaItem } from './MediaItem';
+import { RootState } from '../store/store';
 
 interface PostCardProps {
   post?: Post;
   onLikeChange?: (postId: string, isLiked: boolean) => void;
   onSaveChange?: (postId: string, isSaved: boolean) => void;
+  onDeleted?: (postId: string) => void;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -40,12 +52,20 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString();
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveChange }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveChange, onDeleted }) => {
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const authUser = useSelector((state: RootState) => state.auth.user);
   const [isLiked, setIsLiked] = useState(post?.isLiked ?? false);
   const [isSaved, setIsSaved] = useState(post?.isSaved ?? false);
   const [likesCount, setLikesCount] = useState(post?.likesCount ?? 0);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editCaption, setEditCaption] = useState(post?.caption ?? '');
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [currentCaption, setCurrentCaption] = useState(post?.caption ?? '');
+  const isOwnPost = authUser?.id && (post?.userId === authUser.id || post?.user?.id === authUser.id);
 
   React.useEffect(() => {
     if (post) {
@@ -107,6 +127,112 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     }
   }, [post?.userId, post?.user?.id, post?.id, post?.user, navigation]);
 
+  const handleShare = useCallback(async () => {
+    if (!post?.id) return;
+    try {
+      await Share.share({
+        message: `Посмотри пост в HeirLink: heirlink://post/${post.id}`,
+      });
+    } catch {}
+  }, [post?.id]);
+
+  const handleCopyLink = useCallback(() => {
+    if (!post?.id) return;
+    Clipboard.setString(`heirlink://post/${post.id}`);
+    Alert.alert('Скопировано', 'Ссылка скопирована в буфер обмена');
+  }, [post?.id]);
+
+  const handleDeletePost = useCallback(async () => {
+    if (!post?.id) return;
+    Alert.alert('Удалить пост', 'Вы уверены, что хотите удалить этот пост?', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiService.deletePost(post.id);
+            queryClient.invalidateQueries({ queryKey: ['feed'] });
+            queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
+            onDeleted?.(post.id);
+          } catch {
+            Alert.alert('Ошибка', 'Не удалось удалить пост');
+          }
+        },
+      },
+    ]);
+  }, [post?.id, queryClient, onDeleted]);
+
+  const handleEditCaption = useCallback(async () => {
+    if (!post?.id) return;
+    try {
+      await apiService.editPost(post.id, { caption: editCaption.trim() });
+      setCurrentCaption(editCaption.trim());
+      setEditModalVisible(false);
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['post', post.id] });
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось обновить подпись');
+    }
+  }, [post?.id, editCaption, queryClient]);
+
+  const handleReport = useCallback(async () => {
+    if (!post?.id || !reportReason.trim()) return;
+    try {
+      await apiService.createReport('post', post.id, reportReason.trim());
+      setReportModalVisible(false);
+      setReportReason('');
+      Alert.alert('Спасибо', 'Жалоба отправлена и будет рассмотрена');
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось отправить жалобу');
+    }
+  }, [post?.id, reportReason]);
+
+  const handleMoreMenu = useCallback(() => {
+    if (!post?.id) return;
+    if (isOwnPost) {
+      const options = ['Редактировать подпись', 'Удалить пост', 'Скопировать ссылку', 'Поделиться', 'Отмена'];
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          { options, destructiveButtonIndex: 1, cancelButtonIndex: 4 },
+          (idx) => {
+            if (idx === 0) { setEditCaption(currentCaption); setEditModalVisible(true); }
+            if (idx === 1) handleDeletePost();
+            if (idx === 2) handleCopyLink();
+            if (idx === 3) handleShare();
+          },
+        );
+      } else {
+        Alert.alert('Действия', undefined, [
+          { text: 'Редактировать подпись', onPress: () => { setEditCaption(currentCaption); setEditModalVisible(true); } },
+          { text: 'Удалить пост', style: 'destructive', onPress: handleDeletePost },
+          { text: 'Скопировать ссылку', onPress: handleCopyLink },
+          { text: 'Поделиться', onPress: handleShare },
+          { text: 'Отмена', style: 'cancel' },
+        ]);
+      }
+    } else {
+      const options = ['Пожаловаться', 'Скопировать ссылку', 'Поделиться', 'Отмена'];
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          { options, destructiveButtonIndex: 0, cancelButtonIndex: 3 },
+          (idx) => {
+            if (idx === 0) setReportModalVisible(true);
+            if (idx === 1) handleCopyLink();
+            if (idx === 2) handleShare();
+          },
+        );
+      } else {
+        Alert.alert('Действия', undefined, [
+          { text: 'Пожаловаться', style: 'destructive', onPress: () => setReportModalVisible(true) },
+          { text: 'Скопировать ссылку', onPress: handleCopyLink },
+          { text: 'Поделиться', onPress: handleShare },
+          { text: 'Отмена', style: 'cancel' },
+        ]);
+      }
+    }
+  }, [post?.id, isOwnPost, currentCaption, handleDeletePost, handleCopyLink, handleShare]);
+
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const lastTapRef = useRef(0);
@@ -162,7 +288,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
             <Text style={[styles.location, { color: colors.textSecondary }]}>{post.location}</Text>
           ) : null}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity style={styles.moreButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={handleMoreMenu}>
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
@@ -180,7 +306,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
               viewabilityConfig={viewabilityConfig}
               renderItem={({ item }) => (
                 <View style={styles.media}>
-                  <SmartImage uri={item.url} style={styles.mediaImage} />
+                  <MediaItem uri={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} style={styles.mediaImage} />
                 </View>
               )}
             />
@@ -201,7 +327,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         ) : (
           <View style={styles.media}>
             {mediaList[0]?.url ? (
-              <SmartImage uri={mediaList[0].url} style={styles.mediaImage} />
+              <MediaItem uri={mediaList[0].url} type={mediaList[0].type} thumbnailUrl={mediaList[0].thumbnailUrl} style={styles.mediaImage} />
             ) : (
               <View style={[styles.mediaPlaceholder, { backgroundColor: colors.surface }]}>
                 <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
@@ -232,7 +358,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
           <TouchableOpacity onPress={handleComment} style={styles.actionButton} activeOpacity={0.7}>
             <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={handleShare}>
             <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -249,16 +375,71 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         <Text style={[styles.likesCount, { color: colors.text }]}>{likesCount} нравится</Text>
       )}
 
-      {(post?.caption != null && post.caption !== '') && (
+      {(currentCaption != null && currentCaption !== '') && (
         <View style={styles.caption}>
           <Text style={[styles.captionText, { color: colors.text }]} numberOfLines={2}>
             <Text style={styles.usernameInline}>{username}</Text>
-            {'  '}{post.caption}
+            {'  '}{currentCaption}
           </Text>
         </View>
       )}
 
       <Text style={[styles.time, { color: colors.textTertiary }]}>{timeStr}</Text>
+
+      {/* Edit caption modal */}
+      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Редактировать подпись</Text>
+            <TextInput
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={editCaption}
+              onChangeText={setEditCaption}
+              multiline
+              maxLength={2200}
+              placeholder="Подпись..."
+              placeholderTextColor={colors.textTertiary}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalBtn}>
+                <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleEditCaption} style={styles.modalBtn}>
+                <Text style={[styles.modalBtnText, { color: colors.primary }]}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Report modal */}
+      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setReportModalVisible(false)}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Пожаловаться</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Укажите причину жалобы</Text>
+            <TextInput
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={reportReason}
+              onChangeText={setReportReason}
+              multiline
+              maxLength={500}
+              placeholder="Причина..."
+              placeholderTextColor={colors.textTertiary}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => { setReportModalVisible(false); setReportReason(''); }} style={styles.modalBtn}>
+                <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleReport} style={styles.modalBtn} disabled={!reportReason.trim()}>
+                <Text style={[styles.modalBtnText, { color: reportReason.trim() ? colors.like : colors.textTertiary }]}>Отправить</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -378,5 +559,49 @@ const styles = StyleSheet.create({
   usernameInline: {
     ...typography.bodyBold,
     fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: 16,
+    padding: spacing.lg,
+  },
+  modalTitle: {
+    ...typography.bodyBold,
+    fontSize: 17,
+    marginBottom: spacing.sm,
+  },
+  modalSubtitle: {
+    ...typography.body,
+    fontSize: 13,
+    marginBottom: spacing.md,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  modalBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  modalBtnText: {
+    ...typography.bodyBold,
+    fontSize: 15,
   },
 });

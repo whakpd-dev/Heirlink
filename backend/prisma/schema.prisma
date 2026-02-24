@@ -37,6 +37,9 @@ model User {
   ownedAlbums           Album[]
   albumMemberships      AlbumMember[]
   albumItems            AlbumItem[]
+  reports               Report[]
+  blockedUsers          Block[]        @relation("Blocker")
+  blockedByUsers        Block[]        @relation("Blocked")
 
   @@index([username])
   @@index([email])
@@ -272,6 +275,37 @@ model AlbumMember {
   @@unique([albumId, userId])
   @@index([userId])
   @@map("album_members")
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String   @map("reporter_id")
+  targetType String   @map("target_type") // post | album_item | user | comment
+  targetId   String   @map("target_id")
+  reason     String
+  status     String   @default("pending") // pending | reviewed | dismissed
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@map("reports")
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blocks")
 }
 
 model AlbumItem {

@@ -10,6 +10,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  Alert,
+  ActionSheetIOS,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
@@ -972,7 +974,54 @@ export const ProfileScreen: React.FC = () => {
           >
             <Ionicons name="menu" size={24} color={colors.text} />
           </TouchableOpacity>
-        ) : <View style={styles.settingsButton} />}
+        ) : (
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => {
+              const opts = ['Пожаловаться', 'Заблокировать', 'Отмена'];
+              const handler = (text: string) => {
+                if (text === 'Пожаловаться') {
+                  (async () => {
+                    try {
+                      await apiService.createReport('user', profileUserId!, 'Нарушение правил');
+                      Alert.alert('Спасибо', 'Жалоба отправлена');
+                    } catch { Alert.alert('Ошибка', 'Не удалось отправить'); }
+                  })();
+                }
+                if (text === 'Заблокировать') {
+                  Alert.alert('Заблокировать', `Заблокировать ${displayUser?.username}?`, [
+                    { text: 'Отмена', style: 'cancel' },
+                    {
+                      text: 'Заблокировать', style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await apiService.blockUser(profileUserId!);
+                          Alert.alert('Готово', 'Пользователь заблокирован');
+                          navigation.goBack();
+                        } catch { Alert.alert('Ошибка', 'Не удалось заблокировать'); }
+                      },
+                    },
+                  ]);
+                }
+              };
+              if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions(
+                  { options: opts, destructiveButtonIndex: 1, cancelButtonIndex: 2 },
+                  (idx) => { if (idx < 2) handler(opts[idx]); },
+                );
+              } else {
+                Alert.alert('Действия', undefined, [
+                  { text: 'Пожаловаться', onPress: () => handler('Пожаловаться') },
+                  { text: 'Заблокировать', style: 'destructive', onPress: () => handler('Заблокировать') },
+                  { text: 'Отмена', style: 'cancel' },
+                ]);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

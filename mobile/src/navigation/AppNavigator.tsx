@@ -30,6 +30,8 @@ import { CreateAlbumScreen } from '../screens/Album/CreateAlbumScreen';
 import { AlbumDetailScreen } from '../screens/Album/AlbumDetailScreen';
 import { AlbumMembersScreen } from '../screens/Album/AlbumMembersScreen';
 import { AlbumSettingsScreen } from '../screens/Album/AlbumSettingsScreen';
+import { MediaViewerScreen } from '../screens/Album/MediaViewerScreen';
+import { SavedPostsScreen } from '../screens/Profile/SavedPostsScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../theme';
@@ -89,6 +91,8 @@ const FeedStack = () => (
     <FeedStackNav.Screen name="AlbumDetail" component={AlbumDetailScreen} />
     <FeedStackNav.Screen name="AlbumMembers" component={AlbumMembersScreen} />
     <FeedStackNav.Screen name="AlbumSettings" component={AlbumSettingsScreen} />
+    <FeedStackNav.Screen name="MediaViewer" component={MediaViewerScreen} />
+    <FeedStackNav.Screen name="SavedPosts" component={SavedPostsScreen} />
   </FeedStackNav.Navigator>
 );
 
@@ -102,6 +106,7 @@ const ExploreStack = () => (
     <ExploreStackNav.Screen name="AlbumDetail" component={AlbumDetailScreen} />
     <ExploreStackNav.Screen name="AlbumMembers" component={AlbumMembersScreen} />
     <ExploreStackNav.Screen name="AlbumSettings" component={AlbumSettingsScreen} />
+    <ExploreStackNav.Screen name="MediaViewer" component={MediaViewerScreen} />
   </ExploreStackNav.Navigator>
 );
 
@@ -131,6 +136,8 @@ const ProfileStack = () => (
     <ProfileStackNav.Screen name="AlbumDetail" component={AlbumDetailScreen} />
     <ProfileStackNav.Screen name="AlbumMembers" component={AlbumMembersScreen} />
     <ProfileStackNav.Screen name="AlbumSettings" component={AlbumSettingsScreen} />
+    <ProfileStackNav.Screen name="MediaViewer" component={MediaViewerScreen} />
+    <ProfileStackNav.Screen name="SavedPosts" component={SavedPostsScreen} />
   </ProfileStackNav.Navigator>
 );
 

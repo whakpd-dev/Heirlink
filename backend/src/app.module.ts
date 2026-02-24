@@ -22,6 +22,7 @@ import { CacheModule } from './cache/cache.module';
 import { QueueModule } from './queue/queue.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { AlbumsModule } from './albums/albums.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AlbumsModule } from './albums/albums.module';
     QueueModule,
     GatewayModule,
     AlbumsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

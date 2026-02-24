@@ -8,18 +8,34 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
+  ActionSheetIOS,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { SmartImage } from '../../components/SmartImage';
 import { RootState } from '../../store/store';
+import { API_URL } from '../../config';
+
+function resolveMediaUrl(uri: string): string {
+  if (!uri) return '';
+  if (uri.startsWith('http')) {
+    return uri.includes('localhost:3000')
+      ? uri.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru')
+      : uri;
+  }
+  const base = (API_URL || '').replace(/\/$/, '');
+  return uri.startsWith('/') ? `${base}${uri}` : `${base}/${uri}`;
+}
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_GAP = 2;
@@ -152,11 +168,108 @@ export const AlbumDetailScreen: React.FC = () => {
     [colors],
   );
 
+  const handleItemTap = useCallback(
+    (index: number) => {
+      (navigation as any).push('MediaViewer', {
+        items,
+        initialIndex: index,
+        albumId,
+        isAlbumOwner: isOwner,
+      });
+    },
+    [items, albumId, isOwner, navigation],
+  );
+
+  const handleItemLongPress = useCallback(
+    (item: any) => {
+      const isOwnItem = item.addedById === authUser?.id;
+      const canDeleteItem = isOwnItem || isOwner;
+      const opts: string[] = ['Скачать в галерею'];
+      if (canDeleteItem) opts.push('Удалить');
+      if (!isOwnItem) opts.push('Пожаловаться');
+      opts.push('Отмена');
+
+      const cancelIdx = opts.length - 1;
+      const destructiveIdx = opts.indexOf('Удалить');
+
+      const handleAction = (text: string) => {
+        if (text === 'Скачать в галерею') {
+          (async () => {
+            try {
+              const { status } = await MediaLibrary.requestPermissionsAsync();
+              if (status !== 'granted') { Alert.alert('Доступ', 'Нужен доступ к галерее'); return; }
+              const url = resolveMediaUrl(item.media?.url ?? '');
+              if (!url) return;
+              const ext = item.media?.type === 'video' ? '.mp4' : '.jpg';
+              const localUri = FileSystem.documentDirectory + `heirlink_${Date.now()}${ext}`;
+              const dl = await FileSystem.downloadAsync(url, localUri);
+              await MediaLibrary.saveToLibraryAsync(dl.uri);
+              Alert.alert('Сохранено', 'Файл сохранён в галерею');
+            } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
+          })();
+        }
+        if (text === 'Удалить') {
+          Alert.alert('Удалить', 'Удалить элемент?', [
+            { text: 'Отмена', style: 'cancel' },
+            {
+              text: 'Удалить', style: 'destructive',
+              onPress: async () => {
+                try {
+                  await apiService.removeAlbumItem(albumId, item.id);
+                  queryClient.invalidateQueries({ queryKey: ['albumItems', albumId] });
+                } catch { Alert.alert('Ошибка', 'Не удалось удалить'); }
+              },
+            },
+          ]);
+        }
+        if (text === 'Пожаловаться') {
+          (async () => {
+            try {
+              await apiService.createReport('album_item', item.id, 'Неприемлемый контент');
+              Alert.alert('Спасибо', 'Жалоба отправлена');
+            } catch { Alert.alert('Ошибка', 'Не удалось отправить жалобу'); }
+          })();
+        }
+      };
+
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          { options: opts, cancelButtonIndex: cancelIdx, destructiveButtonIndex: destructiveIdx },
+          (idx) => { if (idx !== cancelIdx) handleAction(opts[idx]); },
+        );
+      } else {
+        const buttons = opts.slice(0, -1).map((text) => ({
+          text,
+          style: (text === 'Удалить' ? 'destructive' : 'default') as any,
+          onPress: () => handleAction(text),
+        }));
+        buttons.push({ text: 'Отмена', style: 'cancel', onPress: () => {} });
+        Alert.alert('Действия', undefined, buttons);
+      }
+    },
+    [albumId, isOwner, authUser?.id, queryClient],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: any }) => (
-      <SmartImage uri={item.media?.url ?? ''} style={styles.tile} contentFit="cover" />
-    ),
-    [styles.tile],
+    ({ item, index }: { item: any; index: number }) => {
+      const isVideo = item.media?.type === 'video';
+      return (
+        <TouchableOpacity
+          style={styles.tile}
+          onPress={() => handleItemTap(index)}
+          onLongPress={() => handleItemLongPress(item)}
+          activeOpacity={0.8}
+        >
+          <SmartImage uri={item.media?.url ?? ''} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+          {isVideo && (
+            <View style={{ position: 'absolute', bottom: 4, left: 4 }}>
+              <Ionicons name="videocam" size={16} color="#FFF" />
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    },
+    [styles.tile, handleItemTap, handleItemLongPress],
   );
 
   const memberAvatars = useMemo(() => {
@@ -184,7 +297,7 @@ export const AlbumDetailScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{album?.name ?? 'Альбом'}</Text>
-          <Text style={styles.headerSub}>{items.length} фото</Text>
+          <Text style={styles.headerSub}>{items.length} медиа</Text>
         </View>
         {isOwner && (
           <TouchableOpacity onPress={() => (navigation as any).push('AlbumSettings', { albumId })}>

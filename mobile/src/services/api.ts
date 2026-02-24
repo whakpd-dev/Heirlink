@@ -559,6 +559,41 @@ class ApiService {
     await this.client.delete(`/albums/${albumId}/members/${userId}`);
   }
 
+  // ─── Posts: Edit / Delete ───
+
+  async editPost(postId: string, data: { caption?: string }) {
+    const response = await this.client.patch(`/posts/${postId}`, data);
+    return response.data;
+  }
+
+  async deletePost(postId: string) {
+    await this.client.delete(`/posts/${postId}`);
+  }
+
+  // ─── Reports ───
+
+  async createReport(targetType: string, targetId: string, reason: string) {
+    const response = await this.client.post('/reports', { targetType, targetId, reason });
+    return response.data;
+  }
+
+  // ─── Block Users ───
+
+  async blockUser(userId: string) {
+    const response = await this.client.post(`/users/${userId}/block`);
+    return response.data;
+  }
+
+  async unblockUser(userId: string) {
+    const response = await this.client.delete(`/users/${userId}/block`);
+    return response.data;
+  }
+
+  async getBlockedUsers() {
+    const response = await this.client.get('/users/me/blocked');
+    return response.data;
+  }
+
   /** Get auth headers for manual fetch (SSE streaming) */
   async getAuthHeaders(): Promise<Record<string, string>> {
     const token = await tokenStorage.getAccessToken();

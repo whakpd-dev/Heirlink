@@ -18,6 +18,7 @@ import { apiService } from '../../services/api';
 import { Comment } from '../../types';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
+import { MediaItem } from '../../components/MediaItem';
 
 type PostDetailParams = { postId?: string };
 
@@ -247,7 +248,12 @@ export const PostDetailScreen: React.FC = () => {
           </View>
           <View style={[styles.media, { width, height: width }]}>
             {firstMedia?.url ? (
-              <SmartImage uri={firstMedia.url} style={styles.mediaImage} />
+              <MediaItem
+                uri={firstMedia.url}
+                type={firstMedia.type}
+                thumbnailUrl={firstMedia.thumbnailUrl}
+                style={styles.mediaImage}
+              />
             ) : (
               <View style={styles.mediaPlaceholder}>
                 <Ionicons name="image-outline" size={64} color={colors.textTertiary} />

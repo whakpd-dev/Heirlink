@@ -22,6 +22,7 @@ import { apiService } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { enqueuePostUpload } from '../../services/uploadQueue';
 import { SmartImage } from '../../components/SmartImage';
+import { MediaItem } from '../../components/MediaItem';
 
 /**
  * Экран создания поста — выбор медиа, подпись, публикация
@@ -206,9 +207,10 @@ export const CreateScreen: React.FC = () => {
     [colors],
   );
   const [caption, setCaption] = useState('');
-  const [selectedUris, setSelectedUris] = useState<string[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<{ uri: string; type: 'photo' | 'video' }[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const selectedUris = selectedAssets.map((a) => a.uri);
 
   const compressImage = useCallback(async (uri: string) => {
     const result = await ImageManipulator.manipulateAsync(
@@ -233,14 +235,17 @@ export const CreateScreen: React.FC = () => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images', 'videos'],
       allowsMultipleSelection: true,
       quality: 0.8,
       selectionLimit: Math.max(1, MAX_PHOTOS - selectedUris.length),
     });
     if (!result.canceled && result.assets.length > 0) {
-      const newUris = result.assets.map((a) => a.uri);
-      setSelectedUris((prev) => [...prev, ...newUris].slice(0, MAX_PHOTOS));
+      const newAssets = result.assets.map((a) => ({
+        uri: a.uri,
+        type: (a.type === 'video' ? 'video' : 'photo') as 'photo' | 'video',
+      }));
+      setSelectedAssets((prev) => [...prev, ...newAssets].slice(0, MAX_PHOTOS));
     }
   };
 
@@ -267,12 +272,12 @@ export const CreateScreen: React.FC = () => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      setSelectedUris((prev) => [...prev, result.assets[0].uri].slice(0, MAX_PHOTOS));
+      setSelectedAssets((prev) => [...prev, { uri: result.assets[0].uri, type: 'photo' }].slice(0, MAX_PHOTOS));
     }
   };
 
   const removePhoto = (index: number) => {
-    setSelectedUris((prev) => prev.filter((_, i) => i !== index));
+    setSelectedAssets((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleClose = () => {
@@ -280,10 +285,10 @@ export const CreateScreen: React.FC = () => {
   };
 
   const handlePublish = async () => {
-    if (selectedUris.length === 0) return;
+    if (selectedAssets.length === 0) return;
     if (netInfo.isConnected === false) {
       await enqueuePostUpload({ caption: caption.trim() || undefined, mediaUris: selectedUris });
-      setSelectedUris([]);
+      setSelectedAssets([]);
       setCaption('');
       showToast('Нет сети. Пост будет опубликован при подключении.');
       return;
@@ -291,11 +296,12 @@ export const CreateScreen: React.FC = () => {
     setPublishing(true);
     setUploadProgress(0);
     try {
-      const media: { url: string; type: 'photo' }[] = [];
-      for (const uri of selectedUris) {
-        const preparedUri = await compressImage(uri);
-        const { url } = await apiService.uploadFile(preparedUri, 'photo');
-        media.push({ url, type: 'photo' });
+      const media: { url: string; type: 'photo' | 'video' }[] = [];
+      for (const asset of selectedAssets) {
+        const isVideo = asset.type === 'video';
+        const preparedUri = isVideo ? asset.uri : await compressImage(asset.uri);
+        const { url } = await apiService.uploadFile(preparedUri, isVideo ? 'video' : 'photo');
+        media.push({ url, type: asset.type });
         setUploadProgress((c) => c + 1);
       }
       await apiService.createPost({
@@ -306,7 +312,7 @@ export const CreateScreen: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['savedPosts'] });
-      setSelectedUris([]);
+      setSelectedAssets([]);
       setCaption('');
       navigation.goBack();
       showToast('Пост опубликован');
@@ -367,15 +373,20 @@ export const CreateScreen: React.FC = () => {
           onPress={pickImage}
           activeOpacity={0.9}
         >
-          {selectedUris.length > 0 ? (
-            <SmartImage uri={selectedUris[0]} style={styles.previewImage} />
+          {selectedAssets.length > 0 ? (
+            <MediaItem
+              uri={selectedAssets[0].uri}
+              type={selectedAssets[0].type}
+              style={styles.previewImage}
+              muted
+            />
           ) : (
             <View style={styles.mediaPlaceholder}>
               <View style={styles.mediaIconWrap}>
                 <Ionicons name="images-outline" size={48} color={colors.textTertiary} />
               </View>
-              <Text style={styles.mediaLabel}>Добавить фото</Text>
-              <Text style={styles.mediaHint}>До {MAX_PHOTOS} фото. Нажмите или выберите ниже</Text>
+              <Text style={styles.mediaLabel}>Добавить фото или видео</Text>
+              <Text style={styles.mediaHint}>До {MAX_PHOTOS} файлов. Нажмите или выберите ниже</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -386,9 +397,14 @@ export const CreateScreen: React.FC = () => {
             contentContainerStyle={styles.thumbStripContent}
             showsHorizontalScrollIndicator={false}
           >
-            {selectedUris.map((uri, index) => (
-              <View key={`${uri}-${index}`} style={styles.thumbWrap}>
-                <SmartImage uri={uri} style={styles.thumb} />
+            {selectedAssets.map((asset, index) => (
+              <View key={`${asset.uri}-${index}`} style={styles.thumbWrap}>
+                <SmartImage uri={asset.uri} style={styles.thumb} />
+                {asset.type === 'video' && (
+                  <View style={{ position: 'absolute', bottom: 2, left: 2 }}>
+                    <Ionicons name="videocam" size={14} color="#FFF" />
+                  </View>
+                )}
                 <TouchableOpacity
                   style={styles.thumbRemove}
                   onPress={() => removePhoto(index)}

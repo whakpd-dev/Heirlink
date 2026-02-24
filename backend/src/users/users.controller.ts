@@ -124,6 +124,26 @@ export class UsersController {
     return { userId: id, online: this.gateway.isUserOnline(id) };
   }
 
+  @Post(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  blockUser(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.usersService.blockUser(req.user.id, id);
+  }
+
+  @Delete(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  unblockUser(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.usersService.unblockUser(req.user.id, id);
+  }
+
+  @Get('me/blocked')
+  @UseGuards(JwtAuthGuard)
+  getBlockedUsers(@Request() req: { user: { id: string } }) {
+    return this.usersService.getBlockedUsers(req.user.id);
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   getById(
