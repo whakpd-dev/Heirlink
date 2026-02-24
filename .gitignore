@@ -69,3 +69,4 @@ models/*.ckpt
 models/*.safetensors
 !models/.gitkeep
 пароли.md
+.github/
