@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { validateEnv } from './config/env.validation';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -20,11 +21,13 @@ import { AiModule } from './ai/ai.module';
 import { CacheModule } from './cache/cache.module';
 import { QueueModule } from './queue/queue.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { AlbumsModule } from './albums/albums.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
     }),
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 10 },
@@ -46,6 +49,7 @@ import { GatewayModule } from './gateway/gateway.module';
     CacheModule,
     QueueModule,
     GatewayModule,
+    AlbumsModule,
   ],
   controllers: [AppController],
   providers: [

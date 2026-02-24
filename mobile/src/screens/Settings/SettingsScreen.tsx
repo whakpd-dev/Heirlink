@@ -151,8 +151,7 @@ export const SettingsScreen: React.FC = () => {
                   activeOpacity={0.8}
                   onPress={() => {
                     if (item.key === 'edit') {
-                      (navigation.getParent() as any)?.navigate('ProfileTab', { screen: 'Profile' });
-                      navigation.goBack();
+                      (navigation as any).push('EditProfile');
                       return;
                     }
                     if (item.key === 'about') {

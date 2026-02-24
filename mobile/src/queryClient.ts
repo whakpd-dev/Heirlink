@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { setQueryClientForLogout } from './store/authSlice';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,3 +15,5 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+setQueryClientForLogout(queryClient);

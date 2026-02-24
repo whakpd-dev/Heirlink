@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,9 +24,6 @@ import { RootState, AppDispatch } from '../../store/store';
 
 const BIO_MAX = 150;
 
-/**
- * Редактирование профиля: аватар и био
- */
 export const EditProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -99,13 +96,103 @@ export const EditProfileScreen: React.FC = () => {
     }
   };
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
+        },
+        headerBtnLeft: { minWidth: 80, alignItems: 'flex-start' },
+        headerBtnRight: { minWidth: 80, alignItems: 'flex-end' },
+        title: { ...typography.title, color: colors.text },
+        saveText: { ...typography.bodyBold, color: colors.primary },
+        scroll: { flex: 1 },
+        scrollContent: { padding: spacing.lg },
+        avatarWrap: {
+          alignSelf: 'center',
+          marginBottom: spacing.xl,
+        },
+        avatar: {
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+        },
+        avatarPlaceholder: {
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+        },
+        avatarOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          borderRadius: 50,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        changePhotoBadge: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingVertical: spacing.xs,
+          alignItems: 'center',
+          borderBottomLeftRadius: 50,
+          borderBottomRightRadius: 50,
+          backgroundColor: colors.primary,
+        },
+        changePhotoText: {
+          ...typography.caption,
+          color: '#FFF',
+          fontWeight: '600',
+        },
+        fieldWrap: {
+          borderRadius: radius.md,
+          padding: spacing.md,
+          borderWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+        label: {
+          ...typography.caption,
+          marginBottom: spacing.sm,
+          color: colors.textSecondary,
+        },
+        input: {
+          ...typography.body,
+          minHeight: 80,
+          borderRadius: radius.sm,
+          padding: spacing.md,
+          color: colors.text,
+          backgroundColor: colors.background,
+        },
+        count: {
+          ...typography.captionMuted,
+          textAlign: 'right',
+          marginTop: spacing.xs,
+          color: colors.textTertiary,
+        },
+      }),
+    [colors],
+  );
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtnLeft} onPress={() => navigation.goBack()} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Редактировать профиль</Text>
+        <Text style={styles.title}>Редактировать профиль</Text>
         <TouchableOpacity
           style={styles.headerBtnRight}
           onPress={handleSave}
@@ -115,7 +202,7 @@ export const EditProfileScreen: React.FC = () => {
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.saveText, { color: colors.primary }]}>Сохранить</Text>
+            <Text style={styles.saveText}>Сохранить</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -134,7 +221,7 @@ export const EditProfileScreen: React.FC = () => {
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surface }]}>
+            <View style={styles.avatarPlaceholder}>
               <Ionicons name="person" size={48} color={colors.textTertiary} />
             </View>
           )}
@@ -143,15 +230,15 @@ export const EditProfileScreen: React.FC = () => {
               <ActivityIndicator size="small" color="#FFF" />
             </View>
           )}
-          <View style={[styles.changePhotoBadge, { backgroundColor: colors.primary }]}>
+          <View style={styles.changePhotoBadge}>
             <Text style={styles.changePhotoText}>Изменить фото</Text>
           </View>
         </TouchableOpacity>
 
-        <View style={[styles.fieldWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>О себе</Text>
+        <View style={styles.fieldWrap}>
+          <Text style={styles.label}>О себе</Text>
           <TextInput
-            style={[styles.input, { color: colors.text, backgroundColor: colors.background }]}
+            style={styles.input}
             placeholder="Расскажите о себе"
             placeholderTextColor={colors.textTertiary}
             value={bio}
@@ -159,85 +246,9 @@ export const EditProfileScreen: React.FC = () => {
             multiline
             maxLength={BIO_MAX}
           />
-          <Text style={[styles.count, { color: colors.textTertiary }]}>{bio.length}/{BIO_MAX}</Text>
+          <Text style={styles.count}>{bio.length}/{BIO_MAX}</Text>
         </View>
       </ScrollView>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerBtnLeft: { minWidth: 80, alignItems: 'flex-start' },
-  headerBtnRight: { minWidth: 80, alignItems: 'flex-end' },
-  title: { ...typography.title },
-  saveText: { ...typography.bodyBold },
-  scroll: { flex: 1 },
-  scrollContent: { padding: spacing.lg },
-  avatarWrap: {
-    alignSelf: 'center',
-    marginBottom: spacing.xl,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 50,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  changePhotoBadge: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: spacing.xs,
-    alignItems: 'center',
-    borderBottomLeftRadius: 50,
-    borderBottomRightRadius: 50,
-  },
-  changePhotoText: {
-    ...typography.caption,
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  fieldWrap: {
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  label: {
-    ...typography.caption,
-    marginBottom: spacing.sm,
-  },
-  input: {
-    ...typography.body,
-    minHeight: 80,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-  },
-  count: {
-    ...typography.captionMuted,
-    textAlign: 'right',
-    marginTop: spacing.xs,
-  },
-});

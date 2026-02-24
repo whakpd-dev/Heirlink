@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
+import { tokenStorage } from './tokenStorage';
 
 type UnauthorizedCallback = () => void;
 type ErrorCallback = (message: string) => void;
@@ -11,6 +11,8 @@ class ApiService {
   private onError: ErrorCallback | null = null;
   private lastErrorAt = 0;
   private lastErrorMessage = '';
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private isRefreshing = false;
 
   setOnUnauthorized(cb: UnauthorizedCallback) {
     this.onUnauthorized = cb;
@@ -41,7 +43,7 @@ class ApiService {
     // Interceptor для добавления токена
     this.client.interceptors.request.use(
       async (config) => {
-        const token = await AsyncStorage.getItem('accessToken');
+        const token = await tokenStorage.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -75,24 +77,22 @@ class ApiService {
         }
         if (status === 401) {
           // Попытка обновить токен
-          const refreshToken = await AsyncStorage.getItem('refreshToken');
+          const refreshToken = await tokenStorage.getRefreshToken();
           if (refreshToken) {
             try {
               const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
                 refreshToken,
               });
               const { accessToken, refreshToken: newRefreshToken } = response.data;
-              await AsyncStorage.setItem('accessToken', accessToken);
-              await AsyncStorage.setItem('refreshToken', newRefreshToken);
+              await tokenStorage.setAccessToken(accessToken);
+              await tokenStorage.setRefreshToken(newRefreshToken);
               
-              // Повторный запрос с новым токеном
               if (error.config) {
                 error.config.headers.Authorization = `Bearer ${accessToken}`;
                 return this.client.request(error.config);
               }
             } catch (refreshError) {
-              // Если refresh не удался, очищаем токены и уведомляем приложение (редирект на логин)
-              await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
+              await tokenStorage.clearTokens();
               this.onUnauthorized?.();
               return Promise.reject(refreshError);
             }
@@ -101,6 +101,37 @@ class ApiService {
         return Promise.reject(error);
       },
     );
+  }
+
+  scheduleProactiveRefresh(expiresInMs: number) {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    const refreshAt = Math.max(expiresInMs - 5 * 60 * 1000, 30_000);
+    this.refreshTimer = setTimeout(() => this.doProactiveRefresh(), refreshAt);
+  }
+
+  private async doProactiveRefresh() {
+    if (this.isRefreshing) return;
+    this.isRefreshing = true;
+    try {
+      const rt = await tokenStorage.getRefreshToken();
+      if (!rt) return;
+      const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken: rt });
+      const { accessToken, refreshToken: newRT } = response.data;
+      await tokenStorage.setAccessToken(accessToken);
+      await tokenStorage.setRefreshToken(newRT);
+      this.scheduleProactiveRefresh(6 * 24 * 60 * 60 * 1000);
+    } catch {
+      /* will be handled by 401 interceptor on next request */
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  stopProactiveRefresh() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   // Auth methods
@@ -131,6 +162,10 @@ class ApiService {
   async getMe() {
     const response = await this.client.get('/auth/me');
     return response.data;
+  }
+
+  async logoutServer(refreshToken: string) {
+    await this.client.post('/auth/logout', { refreshToken });
   }
 
   // Posts methods
@@ -180,7 +215,7 @@ class ApiService {
     uri: string,
     kind: 'photo' | 'video' = 'photo',
     fileName?: string,
-    uploadType: 'posts' | 'avatars' | 'stories' = 'posts',
+    uploadType: 'posts' | 'avatars' | 'stories' | 'albums' = 'posts',
   ): Promise<{ url: string }> {
     const formData = new FormData();
     const mime = kind === 'video' ? 'video/mp4' : 'image/jpeg';
@@ -455,9 +490,78 @@ class ApiService {
     return response.data;
   }
 
+  // ─── Albums ───
+
+  async getMyAlbums() {
+    const response = await this.client.get('/albums/my');
+    return response.data;
+  }
+
+  async getUserAlbums(userId: string) {
+    const response = await this.client.get(`/albums/user/${userId}`);
+    return response.data;
+  }
+
+  async getAlbum(albumId: string) {
+    const response = await this.client.get(`/albums/${albumId}`);
+    return response.data;
+  }
+
+  async getAlbumItems(albumId: string, cursor?: string, limit = 20) {
+    const response = await this.client.get(`/albums/${albumId}/items`, {
+      params: { cursor, limit },
+    });
+    return response.data;
+  }
+
+  async createAlbum(name: string, visibility: 'public' | 'private' = 'private') {
+    const response = await this.client.post('/albums', { name, visibility });
+    return response.data;
+  }
+
+  async updateAlbum(albumId: string, data: { name?: string; visibility?: string; coverUrl?: string }) {
+    const response = await this.client.patch(`/albums/${albumId}`, data);
+    return response.data;
+  }
+
+  async deleteAlbum(albumId: string) {
+    await this.client.delete(`/albums/${albumId}`);
+  }
+
+  async addAlbumItem(albumId: string, uri: string, kind: 'photo' | 'video' = 'photo', caption?: string) {
+    const formData = new FormData();
+    const mime = kind === 'video' ? 'video/mp4' : 'image/jpeg';
+    const name = kind === 'video' ? 'video.mp4' : 'photo.jpg';
+    formData.append('file', { uri, type: mime, name } as unknown as Blob);
+    if (caption) formData.append('caption', caption);
+    const response = await this.client.post(`/albums/${albumId}/items`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      transformRequest: [(data, headers) => { delete headers['Content-Type']; return data; }],
+    });
+    return response.data;
+  }
+
+  async removeAlbumItem(albumId: string, itemId: string) {
+    await this.client.delete(`/albums/${albumId}/items/${itemId}`);
+  }
+
+  async getAlbumMembers(albumId: string) {
+    const response = await this.client.get(`/albums/${albumId}/members`);
+    return response.data;
+  }
+
+  async addAlbumMember(albumId: string, userId: string, role: 'editor' | 'viewer' = 'editor') {
+    const response = await this.client.post(`/albums/${albumId}/members`, { userId, role });
+    return response.data;
+  }
+
+  async removeAlbumMember(albumId: string, userId: string) {
+    await this.client.delete(`/albums/${albumId}/members/${userId}`);
+  }
+
   /** Get auth headers for manual fetch (SSE streaming) */
   async getAuthHeaders(): Promise<Record<string, string>> {
-    const token = await AsyncStorage.getItem('accessToken');
+    const token = await tokenStorage.getAccessToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;

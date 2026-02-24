@@ -16,7 +16,7 @@ import { PostCard } from '../../components/PostCard';
 import { apiService } from '../../services/api';
 import { Post } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, typography } from '../../theme';
+import { spacing, typography } from '../../theme';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 /**
@@ -70,6 +70,60 @@ export const FeedScreen: React.FC = () => {
     <PostCard post={item} />
   ), []);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        scrollContent: {
+          paddingBottom: 24,
+        },
+        loading: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: 80,
+        },
+        feed: {
+          paddingTop: 8,
+        },
+        empty: {
+          paddingHorizontal: spacing.xl,
+          paddingVertical: spacing.xxl,
+          alignItems: 'center',
+        },
+        emptyText: {
+          ...typography.body,
+          color: colors.textSecondary,
+          textAlign: 'center',
+        },
+        errorContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingTop: 80,
+        },
+        retryButton: {
+          marginTop: spacing.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+          borderRadius: 8,
+          alignSelf: 'center',
+        },
+        retryButtonText: {
+          ...typography.body,
+          fontWeight: '600',
+          color: '#fff',
+        },
+        loadingMore: {
+          paddingVertical: spacing.lg,
+          alignItems: 'center',
+        },
+      }),
+    [colors],
+  );
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom, backgroundColor: colors.background }]}>
       <StatusBar barStyle={colors.background === '#0F0F0F' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} translucent={false} />
@@ -90,6 +144,10 @@ export const FeedScreen: React.FC = () => {
           data={posts}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          initialNumToRender={3}
           ListHeaderComponent={<StoriesRail />}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -119,53 +177,3 @@ export const FeedScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-  },
-  feed: {
-    paddingTop: 8,
-  },
-  empty: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingTop: 80,
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  retryButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  loadingMore: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-});

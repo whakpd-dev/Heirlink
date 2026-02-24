@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navig
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { RootState, AppDispatch } from '../../store/store';
 import { restoreUserFromStorage, checkAuth, logout } from '../../store/authSlice';
@@ -29,14 +29,15 @@ const TABS = [
   { key: 'tagged', label: 'Отметки', icon: 'person-outline' as const },
 ];
 const COLS = 3;
-const GRID_GAP = 2;
-const TOP_BAR_HEIGHT = 52;
+const GRID_GAP = 1;
+const TOP_BAR_HEIGHT = 48;
 
-const HIGHLIGHTS = [
-  { id: '1', name: 'Путешествия', color: ['#F59E0B', '#EF4444'] },
-  { id: '2', name: 'Семья', color: ['#0F766E', '#14B8A6'] },
-  { id: '3', name: 'Еда', color: ['#EC4899', '#8B5CF6'] },
-  { id: '4', name: 'Добавить', isAdd: true },
+const ALBUM_COLORS = [
+  ['#F59E0B', '#EF4444'],
+  ['#0F766E', '#14B8A6'],
+  ['#EC4899', '#8B5CF6'],
+  ['#3B82F6', '#6366F1'],
+  ['#10B981', '#059669'],
 ];
 
 type PostItem = {
@@ -53,6 +54,324 @@ export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        centered: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        scroll: {
+          flex: 1,
+        },
+        topBar: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.sm,
+          zIndex: 10,
+          backgroundColor: colors.background,
+        },
+        topBarTitle: {
+          ...typography.bodyBold,
+          fontSize: 18,
+          flex: 1,
+          color: colors.text,
+        },
+        backButton: {
+          padding: spacing.sm,
+          marginRight: spacing.xs,
+        },
+        settingsButton: {
+          padding: spacing.sm,
+        },
+        header: {
+          paddingTop: spacing.sm,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.background,
+        },
+        headerRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: spacing.md,
+        },
+        avatarWrap: {
+          marginRight: spacing.xl,
+        },
+        avatarRing: {
+          width: 86,
+          height: 86,
+          borderRadius: 43,
+          padding: 3,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 2,
+          borderColor: colors.primary,
+        },
+        avatarInner: {
+          width: 78,
+          height: 78,
+          borderRadius: 39,
+          overflow: 'hidden',
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+        },
+        avatarImage: {
+          width: '100%',
+          height: '100%',
+        },
+        statsRow: {
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        },
+        statItem: {
+          alignItems: 'center',
+        },
+        statValue: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+        },
+        statLabel: {
+          ...typography.captionMuted,
+          marginTop: 2,
+          color: colors.textSecondary,
+        },
+        nameSection: {
+          marginBottom: spacing.md,
+        },
+        displayName: {
+          ...typography.bodyBold,
+          fontSize: 14,
+          color: colors.text,
+        },
+        bio: {
+          ...typography.caption,
+          marginTop: 2,
+          lineHeight: 18,
+          color: colors.textSecondary,
+        },
+        actions: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+          marginBottom: spacing.sm,
+        },
+        primaryButton: {
+          flex: 1,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.sm,
+          borderWidth: StyleSheet.hairlineWidth,
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 36,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+        primaryButtonText: {
+          ...typography.bodyBold,
+          fontSize: 13,
+          color: colors.text,
+        },
+        secondaryButton: {
+          width: 36,
+          height: 36,
+          borderRadius: radius.sm,
+          borderWidth: StyleSheet.hairlineWidth,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+        highlightsSection: {
+          paddingVertical: spacing.md,
+        },
+        highlightsContent: {
+          paddingHorizontal: spacing.lg,
+        },
+        highlightItem: {
+          alignItems: 'center',
+          marginRight: spacing.lg,
+          width: 68,
+        },
+        highlightCircleColored: {
+          borderWidth: 2,
+        },
+        highlightCircle: {
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: colors.surface,
+          borderWidth: 1.5,
+          borderColor: colors.border,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.xs,
+        },
+        highlightCircleAdd: {
+          borderStyle: 'dashed',
+        },
+        highlightCircleInner: {
+          width: 58,
+          height: 58,
+          borderRadius: 29,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        highlightLabel: {
+          ...typography.label,
+          fontSize: 10,
+          color: colors.textSecondary,
+          textAlign: 'center',
+        },
+        tabs: {
+          flexDirection: 'row',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        tab: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingVertical: spacing.md,
+        },
+        tabActive: {},
+        tabIndicator: {
+          position: 'absolute',
+          bottom: 0,
+          left: '20%',
+          right: '20%',
+          height: 1.5,
+          backgroundColor: 'transparent',
+          borderRadius: 1,
+        },
+        tabIndicatorActive: {
+          backgroundColor: colors.text,
+        },
+        grid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+        },
+        gridItem: {
+          overflow: 'hidden',
+          borderWidth: 0.5,
+          borderColor: 'rgba(0,0,0,0.05)',
+        },
+        gridItemSkeleton: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+        },
+        gridImage: {
+          width: '100%',
+          height: '100%',
+        },
+        gridPlaceholder: {
+          flex: 1,
+          backgroundColor: colors.surface,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        gridMultiIcon: {
+          position: 'absolute',
+          top: spacing.xs,
+          right: spacing.xs,
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          borderRadius: 4,
+          padding: 2,
+        },
+        emptyState: {
+          paddingVertical: spacing.xxl * 2,
+          alignItems: 'center',
+          paddingHorizontal: spacing.xl,
+        },
+        emptyIconWrap: {
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          backgroundColor: colors.surface,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+        },
+        emptyTitle: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+          marginBottom: spacing.xs,
+        },
+        emptySubtitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing.lg,
+        },
+        emptyButton: {
+          paddingHorizontal: spacing.xl,
+          paddingVertical: spacing.sm + 2,
+          backgroundColor: colors.primary,
+          borderRadius: radius.md,
+        },
+        emptyButtonText: {
+          ...typography.bodyBold,
+          color: '#fff',
+        },
+        errorCard: {
+          alignItems: 'center',
+          paddingHorizontal: spacing.xl,
+          maxWidth: 320,
+        },
+        errorTitle: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+          marginTop: spacing.lg,
+          marginBottom: spacing.xs,
+          textAlign: 'center',
+        },
+        errorSubtitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing.xl,
+        },
+        errorButton: {
+          paddingHorizontal: spacing.xl,
+          paddingVertical: spacing.sm + 2,
+          backgroundColor: colors.primary,
+          borderRadius: radius.md,
+          width: '100%',
+          alignItems: 'center',
+          marginBottom: spacing.sm,
+        },
+        errorButtonText: {
+          ...typography.bodyBold,
+          color: '#fff',
+        },
+        errorButtonSecondary: {
+          paddingVertical: spacing.sm,
+          alignItems: 'center',
+        },
+        errorButtonSecondaryText: {
+          ...typography.body,
+          color: colors.textSecondary,
+        },
+      }),
+    [colors],
+  );
   const route = useRoute<RouteProp<{ Profile: ProfileParams }, 'Profile'>>();
   const dispatch = useDispatch<AppDispatch>();
   const { width } = useWindowDimensions();
@@ -114,21 +433,10 @@ export const ProfileScreen: React.FC = () => {
     }
   }
 
-  const [profileUser, setProfileUser] = useState<{
-    id: string;
-    username: string;
-    avatarUrl?: string | null;
-    bio?: string | null;
-  } | null>(isOwnProfile && authUser ? { id: authUser.id, username: authUser.username, avatarUrl: authUser.avatarUrl, bio: authUser.bio } : null);
   const [activeTab, setActiveTab] = useState(0);
-  const [posts, setPosts] = useState<PostItem[]>([]);
-  const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [postsTotal, setPostsTotal] = useState(0);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
   const [showUserError, setShowUserError] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const restoreAttempted = useRef(false);
@@ -142,7 +450,7 @@ export const ProfileScreen: React.FC = () => {
     }
   }, [authUser, isOwnProfile, dispatch]);
 
-  const itemSize = (width - GRID_GAP * (COLS - 1)) / COLS;
+  const itemSize = Math.floor((width - GRID_GAP * (COLS - 1)) / COLS);
 
   const profileQuery = useQuery({
     queryKey: ['profile', profileUserId],
@@ -150,100 +458,44 @@ export const ProfileScreen: React.FC = () => {
     queryFn: async () => apiService.getUserProfile(profileUserId as string),
     retry: 2,
     retryDelay: 1000,
-    onSuccess: (profile: any) => {
-      if (__DEV__) {
-        console.log('[HeirLink ProfileScreen:getUserProfile] success', { profileUserId, username: profile?.username });
-      }
-      setProfileUser({
-        id: profileUserId as string,
-        username: profile?.username ?? '?',
-        avatarUrl: profile?.avatarUrl ?? null,
-        bio: profile?.bio ?? null,
-      });
-      setFollowersCount(profile?.followersCount ?? 0);
-      setFollowingCount(profile?.followingCount ?? 0);
-      setPostsTotal(profile?.postsCount ?? 0);
-      setIsFollowing(profile?.isFollowing ?? false);
-    },
-    onError: (err: any) => {
-      if (__DEV__) {
-        const status = err?.response?.status;
-        const url = err?.config?.url ?? err?.config?.baseURL;
-        console.warn('[HeirLink ProfileScreen:getUserProfile] error', {
-          profileUserId,
-          status,
-          message: err?.message,
-          url: err?.config ? `${err.config.baseURL ?? ''}${err.config.url ?? ''}` : url,
-        });
-      }
-      if (isOwnProfile) return;
-      setProfileUser(null);
-    },
   });
 
   const postsQuery = useQuery({
     queryKey: ['profilePosts', profileUserId],
     enabled: !!profileUserId,
     queryFn: async () => apiService.getPostsByUser(profileUserId as string, 1, 30),
-    onSuccess: (data: any) => {
-      const list = (data.posts ?? []).map((p: any) => ({
-        id: p.id,
-        media: p.media ?? [],
-      }));
-      setPosts(list);
-      setPostsTotal((prev) => (data.pagination?.total != null ? data.pagination.total : prev));
-    },
-    onError: () => {
-      setPosts([]);
-      setPostsTotal(0);
-    },
   });
 
   const savedQuery = useQuery({
     queryKey: ['savedPosts'],
     enabled: isOwnProfile && activeTab === 1,
     queryFn: async () => apiService.getSavedPosts(1, 30),
-    onSuccess: (data: any) => {
-      const list = (data.posts ?? []).map((p: any) => ({
-        id: p.id,
-        media: p.media ?? [],
-      }));
-      setSavedPosts(list);
-    },
-    onError: () => {
-      setSavedPosts([]);
-    },
   });
   const loadingSaved = savedQuery.isLoading;
 
-  useEffect(() => {
-    if (profileUserId) {
-      setLoading(true);
-      if (isOwnProfile && authUser) {
-        setProfileUser({ id: authUser.id, username: authUser.username, avatarUrl: authUser.avatarUrl, bio: authUser.bio });
-      } else {
-        setProfileUser(null);
-      }
-    } else {
-      setLoading(false);
-      setPosts([]);
-      setProfileUser(null);
+  const albumsQuery = useQuery({
+    queryKey: isOwnProfile ? ['myAlbums'] : ['userAlbums', profileUserId],
+    enabled: !!profileUserId,
+    queryFn: () => isOwnProfile ? apiService.getMyAlbums() : apiService.getUserAlbums(profileUserId as string),
+    staleTime: 30_000,
+  });
+  const albums = useMemo(() => {
+    if (!albumsQuery.data) return [];
+    if (isOwnProfile) {
+      return [...(albumsQuery.data.owned ?? []), ...(albumsQuery.data.memberOf ?? [])];
     }
-  }, [profileUserId, isOwnProfile, authUser?.id]);
+    return albumsQuery.data ?? [];
+  }, [albumsQuery.data, isOwnProfile]);
 
-  // При открытии экрана с другим userId — принудительно подтягиваем данные (навигация с другой вкладки может отдать params с задержкой)
+  const loading = profileQuery.isLoading || postsQuery.isLoading;
+
   useFocusEffect(
     useCallback(() => {
       if (!profileUserId) return;
       profileQuery.refetch();
       postsQuery.refetch();
-    }, [profileUserId, profileQuery, postsQuery]),
+    }, [profileUserId]),
   );
-
-  useEffect(() => {
-    const busy = profileQuery.isLoading || postsQuery.isLoading;
-    if (!busy) setLoading(false);
-  }, [profileQuery.isLoading, postsQuery.isLoading]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -274,16 +526,6 @@ export const ProfileScreen: React.FC = () => {
     }
   }, [profileUserId, isFollowing, followLoading]);
 
-  const handleShare = useCallback(async () => {
-    const u = profileUser ?? authUser;
-    try {
-      await Share.share({
-        message: `Профиль HeirLink: @${u?.username ?? 'user'}`,
-        title: 'Профиль HeirLink',
-      });
-    } catch {}
-  }, [profileUser?.username, authUser?.username]);
-
   const handleEditProfile = useCallback(() => {
     navigation.navigate('EditProfile' as never);
   }, [navigation]);
@@ -295,7 +537,6 @@ export const ProfileScreen: React.FC = () => {
     [navigation],
   );
 
-  // При успешном ответе API берём пользователя и счётчики из query.data, чтобы не терять из-за гонки с useEffect
   const profileData = profileQuery.isSuccess ? (profileQuery.data as any) : null;
   const profileFromQuery =
     profileData && profileUserId
@@ -306,10 +547,20 @@ export const ProfileScreen: React.FC = () => {
           bio: profileData?.bio ?? null,
         }
       : null;
-  const displayUser = profileFromQuery ?? profileUser ?? (isOwnProfile ? authUser : null);
+  const displayUser = profileFromQuery ?? (isOwnProfile ? authUser : null);
+
+  const handleShare = useCallback(async () => {
+    const u = displayUser;
+    try {
+      await Share.share({
+        message: `Профиль HeirLink: @${u?.username ?? 'user'}`,
+        title: 'Профиль HeirLink',
+      });
+    } catch {}
+  }, [displayUser?.username]);
   const displayFollowersCount = profileData?.followersCount ?? followersCount;
-  const displayFollowingCount = profileData?.followingCount ?? followingCount;
-  const displayPostsTotal = profileData?.postsCount ?? postsTotal;
+  const displayFollowingCount = profileData?.followingCount ?? 0;
+  const displayPostsTotal = profileData?.postsCount ?? 0;
   const displayIsFollowing = profileData != null ? (profileData?.isFollowing ?? isFollowing) : isFollowing;
 
   if (isOwnProfile && !authUser) {
@@ -375,28 +626,34 @@ export const ProfileScreen: React.FC = () => {
   const displayName = displayUser?.username || 'Пользователь';
   const bio = displayUser?.bio || 'Расскажите о себе';
 
-  // Как в Instagram: посты из API (при успехе — из query.data, иначе из state)
-  const postsFromQuery =
-    activeTab === 0 && postsQuery.isSuccess && postsQuery.data?.posts
-      ? (postsQuery.data.posts as any[]).map((p: any) => ({
+  const postsFromQuery: PostItem[] =
+    postsQuery.isSuccess && (postsQuery.data as any)?.posts
+      ? ((postsQuery.data as any).posts as any[]).map((p: any) => ({
           id: p.id,
           media: p.media ?? [],
         }))
-      : null;
+      : [];
+  const savedFromQuery: PostItem[] =
+    savedQuery.isSuccess && (savedQuery.data as any)?.posts
+      ? ((savedQuery.data as any).posts as any[]).map((p: any) => ({
+          id: p.id,
+          media: p.media ?? [],
+        }))
+      : [];
   const gridItems =
     activeTab === 0
-      ? (postsFromQuery ?? posts)
+      ? postsFromQuery
       : activeTab === 1
-        ? savedPosts
+        ? savedFromQuery
         : [];
   const showEmptyGrid = activeTab === 0 && !loading && gridItems.length === 0;
-  const showSavedEmpty = activeTab === 1 && !loadingSaved && savedPosts.length === 0;
+  const showSavedEmpty = activeTab === 1 && !loadingSaved && savedFromQuery.length === 0;
   const showSavedLoading = activeTab === 1 && loadingSaved;
   const showTaggedEmpty = activeTab === 2;
   const tabsToShow = isOwnProfile ? TABS : TABS.slice(0, 1);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{
@@ -412,22 +669,42 @@ export const ProfileScreen: React.FC = () => {
           />
         }
       >
-        {/* Шапка: аватар, имя, био, кнопки */}
+        {/* Шапка: аватар + статистика в одну строку (Instagram style) */}
         <View style={styles.header}>
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatarRing}>
-              <View style={styles.avatarInner}>
-                {displayUser?.avatarUrl ? (
-                  <SmartImage uri={displayUser.avatarUrl} style={styles.avatarImage} />
-                ) : (
-                  <Ionicons name="person" size={44} color={colors.textTertiary} />
-                )}
+          <View style={styles.headerRow}>
+            <View style={styles.avatarWrap}>
+              <View style={styles.avatarRing}>
+                <View style={styles.avatarInner}>
+                  {displayUser?.avatarUrl ? (
+                    <SmartImage uri={displayUser.avatarUrl} style={styles.avatarImage} />
+                  ) : (
+                    <Ionicons name="person" size={40} color={colors.textTertiary} />
+                  )}
+                </View>
               </View>
             </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{displayPostsTotal}</Text>
+                <Text style={styles.statLabel}>постов</Text>
+              </View>
+              <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'followers', username: displayName })}>
+                <Text style={styles.statValue}>{displayFollowersCount}</Text>
+                <Text style={styles.statLabel}>подписчиков</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'following', username: displayName })}>
+                <Text style={styles.statValue}>{displayFollowingCount}</Text>
+                <Text style={styles.statLabel}>подписок</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.displayName}>{displayName}</Text>
-          <Text style={styles.username}>@{displayUser?.username ?? '?'}</Text>
-          <Text style={styles.bio}>{bio}</Text>
+
+          <View style={styles.nameSection}>
+            <Text style={styles.displayName}>{displayName}</Text>
+            {bio && bio !== 'Расскажите о себе' && (
+              <Text style={styles.bio}>{bio}</Text>
+            )}
+          </View>
 
           <View style={styles.actions}>
             {isOwnProfile ? (
@@ -444,13 +721,16 @@ export const ProfileScreen: React.FC = () => {
                   onPress={handleShare}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="share-outline" size={20} color={colors.text} />
+                  <Ionicons name="share-outline" size={18} color={colors.text} />
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <TouchableOpacity
-                  style={[styles.primaryButton, displayIsFollowing && styles.followButtonActive]}
+                  style={[
+                    styles.primaryButton,
+                    displayIsFollowing ? undefined : { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}
                   onPress={handleFollow}
                   disabled={followLoading}
                   activeOpacity={0.8}
@@ -458,117 +738,79 @@ export const ProfileScreen: React.FC = () => {
                   {followLoading ? (
                     <ActivityIndicator size="small" color={displayIsFollowing ? colors.text : '#fff'} />
                   ) : (
-                    <Text style={[styles.primaryButtonText, displayIsFollowing && styles.followButtonTextActive]}>
+                    <Text style={[styles.primaryButtonText, { color: displayIsFollowing ? colors.text : '#fff' }]}>
                       {displayIsFollowing ? 'Отписаться' : 'Подписаться'}
                     </Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.secondaryButton}
-                  onPress={handleShare}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="share-outline" size={20} color={colors.text} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.secondaryButton}
                   onPress={() =>
-                    (navigation.getParent() as any)?.navigate('ChatTab', {
-                      screen: 'ChatThread',
-                      params: { userId: profileUserId },
-                    })
+                    (navigation as any).push('ChatThread', { userId: profileUserId })
                   }
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="paper-plane-outline" size={20} color={colors.text} />
+                  <Ionicons name="paper-plane-outline" size={18} color={colors.text} />
                 </TouchableOpacity>
               </>
             )}
           </View>
-
-          {isOwnProfile && (
-            <View style={styles.quickActions}>
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('SmartAlbum' as never)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.quickActionIconWrap}>
-                  <Ionicons name="sparkles" size={22} color={colors.primary} />
-                </View>
-                <Text style={styles.quickActionLabel}>Умный альбом</Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('LocalMedia' as never)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.quickActionIconWrap}>
-                  <Ionicons name="folder-open-outline" size={22} color={colors.primary} />
-                </View>
-                <Text style={styles.quickActionLabel}>Медиатека</Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
-        {/* Статистика */}
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{displayPostsTotal}</Text>
-            <Text style={styles.statLabel}>публикаций</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'followers', username: displayName })}>
-            <Text style={styles.statValue}>{displayFollowersCount}</Text>
-            <Text style={styles.statLabel}>подписчиков</Text>
-          </TouchableOpacity>
-          <View style={styles.statDivider} />
-          <TouchableOpacity style={styles.statItem} onPress={() => profileUserId && (navigation as any).push('FollowList', { userId: profileUserId, mode: 'following', username: displayName })}>
-            <Text style={styles.statValue}>{displayFollowingCount}</Text>
-            <Text style={styles.statLabel}>подписок</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Хайлайты */}
-        <View style={styles.highlightsSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.highlightsContent}
-          >
-            {HIGHLIGHTS.map((h) => (
-              <TouchableOpacity
-                key={h.id}
-                style={styles.highlightItem}
-                activeOpacity={0.9}
-              >
-                {h.isAdd ? (
+        {/* Альбомы */}
+        {(isOwnProfile || albums.length > 0) && (
+          <View style={styles.highlightsSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.highlightsContent}
+            >
+              {isOwnProfile && (
+                <TouchableOpacity
+                  style={styles.highlightItem}
+                  activeOpacity={0.9}
+                  onPress={() => (navigation as any).push('CreateAlbum')}
+                >
                   <View style={[styles.highlightCircle, styles.highlightCircleAdd]}>
-                    <Ionicons name="add" size={28} color={colors.text} />
+                    <Ionicons name="add" size={24} color={colors.textSecondary} />
                   </View>
-                ) : (
-                  <View
-                    style={[
-                      styles.highlightCircle,
-                      styles.highlightCircleColored,
-                      { borderColor: (h as { color: string[] }).color[0] },
-                    ]}
+                  <Text style={styles.highlightLabel} numberOfLines={1}>Создать</Text>
+                </TouchableOpacity>
+              )}
+              {albums.map((album: any, idx: number) => {
+                const coverUrl = album.coverUrl ?? album.items?.[0]?.media?.url;
+                const accentColor = ALBUM_COLORS[idx % ALBUM_COLORS.length][0];
+                return (
+                  <TouchableOpacity
+                    key={album.id}
+                    style={styles.highlightItem}
+                    activeOpacity={0.9}
+                    onPress={() => (navigation as any).push('AlbumDetail', { albumId: album.id, albumName: album.name })}
                   >
-                    <View style={styles.highlightCircleInner}>
-                      <Ionicons name="images-outline" size={22} color={colors.textTertiary} />
+                    <View
+                      style={[
+                        styles.highlightCircle,
+                        styles.highlightCircleColored,
+                        { borderColor: accentColor },
+                      ]}
+                    >
+                      <View style={styles.highlightCircleInner}>
+                        {coverUrl ? (
+                          <SmartImage uri={coverUrl} style={{ width: 58, height: 58, borderRadius: 29 }} />
+                        ) : (
+                          <Ionicons name="images-outline" size={20} color={colors.textTertiary} />
+                        )}
+                      </View>
                     </View>
-                  </View>
-                )}
-                <Text style={styles.highlightLabel} numberOfLines={1}>
-                  {h.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+                    <Text style={styles.highlightLabel} numberOfLines={1}>
+                      {album.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Табы */}
         <View style={styles.tabs}>
@@ -584,7 +826,7 @@ export const ProfileScreen: React.FC = () => {
                 size={22}
                 color={activeTab === i ? colors.text : colors.textTertiary}
               />
-              <View style={[styles.tabIndicator, activeTab === i && styles.tabIndicatorActive]} />
+              <View style={[styles.tabIndicator, activeTab === i && { backgroundColor: colors.text }]} />
             </TouchableOpacity>
           ))}
         </View>
@@ -592,13 +834,20 @@ export const ProfileScreen: React.FC = () => {
         {/* Сетка постов / сохранённые / пустые состояния */}
         {loading && activeTab === 0 ? (
           <View style={styles.grid}>
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <View
                 key={i}
-                style={[styles.gridItem, styles.gridItemSkeleton, { width: itemSize, height: itemSize }]}
-              >
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
+                style={[
+                  styles.gridItem,
+                  styles.gridItemSkeleton,
+                  {
+                    width: itemSize,
+                    height: itemSize,
+                    marginRight: (i % COLS) === (COLS - 1) ? 0 : GRID_GAP,
+                    marginBottom: GRID_GAP,
+                  },
+                ]}
+              />
             ))}
           </View>
         ) : showEmptyGrid ? (
@@ -629,13 +878,20 @@ export const ProfileScreen: React.FC = () => {
           </View>
         ) : showSavedLoading ? (
           <View style={styles.grid}>
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <View
                 key={i}
-                style={[styles.gridItem, styles.gridItemSkeleton, { width: itemSize, height: itemSize }]}
-              >
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
+                style={[
+                  styles.gridItem,
+                  styles.gridItemSkeleton,
+                  {
+                    width: itemSize,
+                    height: itemSize,
+                    marginRight: (i % COLS) === (COLS - 1) ? 0 : GRID_GAP,
+                    marginBottom: GRID_GAP,
+                  },
+                ]}
+              />
             ))}
           </View>
         ) : showSavedEmpty ? (
@@ -656,13 +912,22 @@ export const ProfileScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.grid}>
-            {gridItems.map((item) => {
+            {gridItems.map((item, idx) => {
               const thumb = item.media?.[0];
               const thumbUrl = thumb?.thumbnailUrl || thumb?.url;
+              const isLastCol = (idx % COLS) === (COLS - 1);
               return (
                 <TouchableOpacity
                   key={item.id}
-                  style={[styles.gridItem, { width: itemSize, height: itemSize }]}
+                  style={[
+                    styles.gridItem,
+                    {
+                      width: itemSize,
+                      height: itemSize,
+                      marginRight: isLastCol ? 0 : GRID_GAP,
+                      marginBottom: GRID_GAP,
+                    },
+                  ]}
                   onPress={() => openPost(item.id)}
                   activeOpacity={0.9}
                 >
@@ -686,7 +951,7 @@ export const ProfileScreen: React.FC = () => {
       </ScrollView>
 
       {/* Плавающая шапка */}
-      <View style={[styles.topBar, { top: insets.top, paddingTop: Platform.OS === 'ios' ? spacing.sm : spacing.md }]}>
+      <View style={[styles.topBar, { top: insets.top }]}>
         {!isOwnProfile ? (
           <TouchableOpacity
             style={styles.backButton}
@@ -702,15 +967,7 @@ export const ProfileScreen: React.FC = () => {
         {isOwnProfile ? (
           <TouchableOpacity
             style={styles.settingsButton}
-            onPress={() => {
-              // Settings is inside ProfileStack; use getParent to reach Tab navigator
-              const tabNav = navigation.getParent();
-              if (tabNav) {
-                tabNav.navigate('ProfileTab' as never, { screen: 'Settings' } as never);
-              } else {
-                (navigation as any).navigate('Settings');
-              }
-            }}
+            onPress={() => (navigation as any).push('Settings')}
             activeOpacity={0.8}
           >
             <Ionicons name="menu" size={24} color={colors.text} />
@@ -721,357 +978,3 @@ export const ProfileScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scroll: {
-    flex: 1,
-  },
-  topBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    backgroundColor: 'rgba(250, 250, 250, 0.9)',
-    zIndex: 10,
-  },
-  topBarTitle: {
-    ...typography.bodyBold,
-    fontSize: 18,
-    color: themeColors.text,
-    flex: 1,
-  },
-  backButton: {
-    padding: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  settingsButton: {
-    padding: spacing.sm,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  avatarWrap: {
-    marginBottom: spacing.md,
-  },
-  avatarRing: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    padding: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: themeColors.primary,
-  },
-  avatarInner: {
-    width: 94,
-    height: 94,
-    borderRadius: 47,
-    backgroundColor: themeColors.surface,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  displayName: {
-    ...typography.title,
-    fontSize: 20,
-    color: themeColors.text,
-    marginBottom: 2,
-  },
-  username: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  bio: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.xl,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  primaryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: themeColors.border,
-  },
-  primaryButtonText: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-  },
-  followButtonActive: {
-    backgroundColor: themeColors.background,
-    borderColor: themeColors.border,
-  },
-  followButtonTextActive: {
-    color: themeColors.text,
-  },
-  secondaryButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: themeColors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: themeColors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    width: '100%',
-  },
-  quickActionCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: themeColors.border,
-    gap: spacing.sm,
-  },
-  quickActionIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.sm,
-    backgroundColor: 'rgba(15, 118, 110, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickActionLabel: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-    flex: 1,
-  },
-  stats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    marginHorizontal: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: themeColors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-  },
-  statLabel: {
-    ...typography.captionMuted,
-    color: themeColors.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 24,
-    backgroundColor: themeColors.border,
-  },
-  highlightsSection: {
-    paddingVertical: spacing.lg,
-  },
-  highlightsContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  highlightItem: {
-    alignItems: 'center',
-    marginRight: spacing.xl,
-    width: 76,
-  },
-  highlightCircleColored: {
-    borderWidth: 2,
-  },
-  highlightCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: themeColors.surface,
-    borderWidth: 2,
-    borderColor: themeColors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  highlightCircleAdd: {
-    borderStyle: 'dashed',
-  },
-  highlightCircleInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  highlightLabel: {
-    ...typography.label,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  tabActive: {},
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: '30%',
-    right: '30%',
-    height: 2,
-    backgroundColor: 'transparent',
-  },
-  tabIndicatorActive: {
-    backgroundColor: themeColors.text,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: GRID_GAP / 2,
-  },
-  gridItem: {
-    margin: GRID_GAP / 2,
-    backgroundColor: themeColors.surface,
-    overflow: 'hidden',
-  },
-  gridItemSkeleton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  gridPlaceholder: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 100,
-  },
-  gridMultiIcon: {
-    position: 'absolute',
-    top: spacing.xs,
-    right: spacing.xs,
-  },
-  emptyState: {
-    paddingVertical: spacing.xxl * 2,
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: themeColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-    marginBottom: spacing.xs,
-  },
-  emptySubtitle: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    backgroundColor: themeColors.primary,
-    borderRadius: radius.md,
-  },
-  emptyButtonText: {
-    ...typography.bodyBold,
-    color: '#fff',
-  },
-  errorCard: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    maxWidth: 320,
-  },
-  errorTitle: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  errorSubtitle: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  errorButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    backgroundColor: themeColors.primary,
-    borderRadius: radius.md,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  errorButtonText: {
-    ...typography.bodyBold,
-    color: '#fff',
-  },
-  errorButtonSecondary: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  errorButtonSecondaryText: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-  },
-});

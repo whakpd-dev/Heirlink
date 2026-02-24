@@ -21,14 +21,14 @@ export const FeedHeader: React.FC = () => {
         <TouchableOpacity
           style={styles.iconButton}
           activeOpacity={0.7}
-          onPress={() => (navigation as any).navigate('Activity')}
+          onPress={() => (navigation as any).push('Activity')}
         >
           <Ionicons name="heart-outline" size={26} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconButton}
           activeOpacity={0.7}
-          onPress={() => (navigation as any).getParent()?.navigate('ChatTab', { screen: 'ChatList' })}
+          onPress={() => (navigation as any).getParent()?.navigate('ChatTab')}
         >
           <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
         </TouchableOpacity>

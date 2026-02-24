@@ -3,11 +3,13 @@ import { View, ImageStyle, StyleProp } from 'react-native';
 import { Image as ExpoImage, ImageProps as ExpoImageProps } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = {
   uri: string;
   style?: StyleProp<ImageStyle>;
   contentFit?: ExpoImageProps['contentFit'];
+  onLoad?: () => void;
 };
 
 /** Превращает относительный путь (например /api/uploads/...) в полный URL. */
@@ -36,12 +38,13 @@ function isLoadableUri(uri: string): boolean {
   return lower.startsWith('http://') || lower.startsWith('https://');
 }
 
-export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover' }) => {
+export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover', onLoad }) => {
+  const { colors } = useTheme();
   const resolved = resolveUri(uri);
   if (!resolved || !isLoadableUri(resolved)) {
     return (
-      <View style={[style, { backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' }]}>
-        <Ionicons name="image-outline" size={32} color="#666" />
+      <View style={[style, { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' }]}>
+        <Ionicons name="image-outline" size={32} color={colors.textTertiary} />
       </View>
     );
   }
@@ -53,6 +56,7 @@ export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover' }
       cachePolicy="memory-disk"
       transition={200}
       placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+      onLoad={onLoad}
     />
   );
 };

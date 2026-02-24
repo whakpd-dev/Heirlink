@@ -4,6 +4,9 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -40,19 +43,15 @@ export class AuthController {
   @Post('forgot-password')
   @Throttle({ short: { ttl: 60000, limit: 3 } })
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body('email') email: string) {
-    return this.authService.forgotPassword(email);
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
   }
 
   @Post('reset-password')
   @Throttle({ short: { ttl: 60000, limit: 5 } })
   @HttpCode(HttpStatus.OK)
-  async resetPassword(
-    @Body('email') email: string,
-    @Body('code') code: string,
-    @Body('newPassword') newPassword: string,
-  ) {
-    return this.authService.resetPassword(email, code, newPassword);
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
   }
 
   @Post('change-password')
@@ -60,9 +59,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @Request() req: { user: { id: string } },
-    @Body('currentPassword') currentPassword: string,
-    @Body('newPassword') newPassword: string,
+    @Body() dto: ChangePasswordDto,
   ) {
-    return this.authService.changePassword(req.user.id, currentPassword, newPassword);
+    return this.authService.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(@Body('refreshToken') refreshToken: string) {
+    if (refreshToken) {
+      await this.authService.blacklistRefreshToken(refreshToken);
+    }
+    return { message: 'Logged out successfully' };
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { enqueuePostUpload } from '../../services/uploadQueue';
@@ -34,6 +34,177 @@ export const CreateScreen: React.FC = () => {
   const netInfo = useNetInfo();
   const queryClient = useQueryClient();
   const MAX_PHOTOS = 10;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        headerButton: {
+          padding: spacing.sm,
+        },
+        title: {
+          ...typography.bodyBold,
+          color: colors.text,
+        },
+        publishButton: {
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+        },
+        publishDisabled: {
+          opacity: 0.5,
+        },
+        publishText: {
+          ...typography.bodyBold,
+          color: colors.primary,
+        },
+        publishTextDisabled: {
+          color: colors.textTertiary,
+        },
+        scroll: {
+          flex: 1,
+        },
+        scrollContent: {
+          padding: spacing.lg,
+        },
+        mediaArea: {
+          width: '100%',
+          aspectRatio: 1,
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          backgroundColor: colors.surface,
+          marginBottom: spacing.lg,
+        },
+        mediaPlaceholder: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 2,
+          borderStyle: 'dashed',
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+        },
+        mediaIconWrap: {
+          marginBottom: spacing.md,
+        },
+        mediaLabel: {
+          ...typography.bodyBold,
+          color: colors.textSecondary,
+        },
+        mediaHint: {
+          ...typography.captionMuted,
+          color: colors.textTertiary,
+          marginTop: spacing.xs,
+        },
+        previewImage: {
+          width: '100%',
+          height: '100%',
+        },
+        thumbStrip: {
+          maxHeight: 80,
+          marginBottom: spacing.md,
+        },
+        thumbStripContent: {
+          paddingHorizontal: spacing.lg,
+          gap: spacing.sm,
+          alignItems: 'center',
+        },
+        thumbWrap: {
+          width: 64,
+          height: 64,
+          borderRadius: radius.sm,
+          overflow: 'hidden',
+          position: 'relative',
+        },
+        thumb: {
+          width: '100%',
+          height: '100%',
+        },
+        thumbRemove: {
+          position: 'absolute',
+          top: -4,
+          right: -4,
+        },
+        thumbAdd: {
+          width: 64,
+          height: 64,
+          borderRadius: radius.sm,
+          borderWidth: 2,
+          borderStyle: 'dashed',
+          borderColor: colors.border,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        actions: {
+          flexDirection: 'row',
+          gap: spacing.lg,
+          marginBottom: spacing.xl,
+        },
+        actionButton: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.sm,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+        },
+        actionLabel: {
+          ...typography.bodyBold,
+          color: colors.primary,
+        },
+        captionSection: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.lg,
+        },
+        captionInput: {
+          ...typography.body,
+          color: colors.text,
+          minHeight: 80,
+          padding: 0,
+        },
+        captionCount: {
+          ...typography.captionMuted,
+          color: colors.textTertiary,
+          textAlign: 'right',
+          marginTop: spacing.sm,
+        },
+        options: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          overflow: 'hidden',
+        },
+        optionRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: spacing.md,
+          gap: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        optionText: {
+          flex: 1,
+          ...typography.body,
+          color: colors.text,
+        },
+      }),
+    [colors],
+  );
   const [caption, setCaption] = useState('');
   const [selectedUris, setSelectedUris] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
@@ -278,170 +449,3 @@ export const CreateScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  headerButton: {
-    padding: spacing.sm,
-  },
-  title: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-  },
-  publishButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  publishDisabled: {
-    opacity: 0.5,
-  },
-  publishText: {
-    ...typography.bodyBold,
-    color: themeColors.primary,
-  },
-  publishTextDisabled: {
-    color: themeColors.textTertiary,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  mediaArea: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: themeColors.surface,
-    marginBottom: spacing.lg,
-  },
-  mediaPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: themeColors.border,
-    borderRadius: radius.lg,
-  },
-  mediaIconWrap: {
-    marginBottom: spacing.md,
-  },
-  mediaLabel: {
-    ...typography.bodyBold,
-    color: themeColors.textSecondary,
-  },
-  mediaHint: {
-    ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    marginTop: spacing.xs,
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbStrip: {
-    maxHeight: 80,
-    marginBottom: spacing.md,
-  },
-  thumbStripContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  thumbWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  thumb: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbRemove: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-  },
-  thumbAdd: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.sm,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: themeColors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-  },
-  actionLabel: {
-    ...typography.bodyBold,
-    color: themeColors.primary,
-  },
-  captionSection: {
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  captionInput: {
-    ...typography.body,
-    color: themeColors.text,
-    minHeight: 80,
-    padding: 0,
-  },
-  captionCount: {
-    ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    textAlign: 'right',
-    marginTop: spacing.sm,
-  },
-  options: {
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  optionText: {
-    flex: 1,
-    ...typography.body,
-    color: themeColors.text,
-  },
-});

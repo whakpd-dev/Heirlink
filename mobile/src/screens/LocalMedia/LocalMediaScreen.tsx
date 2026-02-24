@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 
 const COLS = 3;
 const GRID_GAP = 2;
@@ -58,6 +58,161 @@ export const LocalMediaScreen: React.FC = () => {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
   const itemSize = (width - GRID_GAP * (COLS - 1) - spacing.lg * 2) / COLS;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        flex1: { flex: 1 },
+        centered: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        backBtn: {
+          width: 40,
+          height: 40,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        headerTitle: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+        },
+        filters: {
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.lg,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        filterChips: {
+          flexDirection: 'row',
+          gap: spacing.sm,
+        },
+        chip: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.xs,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.full,
+          backgroundColor: colors.surface,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+        },
+        chipActive: {
+          backgroundColor: colors.primary,
+          borderColor: colors.primary,
+        },
+        chipText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        chipTextActive: {
+          color: '#fff',
+        },
+        permissionIconWrap: {
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: colors.surface,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+        },
+        permissionTitle: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+          marginBottom: spacing.xs,
+          textAlign: 'center',
+        },
+        permissionText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing.sm,
+          paddingHorizontal: spacing.xl,
+        },
+        permissionHint: {
+          ...typography.captionMuted,
+          fontSize: 11,
+          color: colors.textTertiary,
+          textAlign: 'center',
+          marginBottom: spacing.xl,
+          paddingHorizontal: spacing.xl,
+        },
+        primaryButton: {
+          paddingHorizontal: spacing.xl,
+          paddingVertical: spacing.sm + 2,
+          backgroundColor: colors.primary,
+          borderRadius: radius.md,
+        },
+        primaryButtonText: {
+          ...typography.bodyBold,
+          color: '#fff',
+        },
+        scroll: {
+          flex: 1,
+        },
+        section: {
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.lg,
+        },
+        sectionTitle: {
+          ...typography.bodyBold,
+          color: colors.textSecondary,
+          marginBottom: spacing.sm,
+        },
+        grid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginHorizontal: -GRID_GAP / 2,
+        },
+        gridItem: {
+          margin: GRID_GAP / 2,
+          backgroundColor: colors.surface,
+          overflow: 'hidden',
+        },
+        gridImage: {
+          width: '100%',
+          height: '100%',
+        },
+        videoBadge: {
+          position: 'absolute',
+          bottom: spacing.xs,
+          right: spacing.xs,
+        },
+        emptyTitle: {
+          ...typography.title,
+          fontSize: 18,
+          color: colors.text,
+          marginTop: spacing.md,
+        },
+        emptySubtitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+        },
+        loadMore: {
+          padding: spacing.lg,
+          alignItems: 'center',
+        },
+      }),
+    [colors],
+  );
 
   const requestPermission = useCallback(async () => {
     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -164,8 +319,8 @@ export const LocalMediaScreen: React.FC = () => {
 
   if (!permission.granted) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -194,8 +349,8 @@ export const LocalMediaScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -325,154 +480,3 @@ export const LocalMediaScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  flex1: { flex: 1 },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-  },
-  filters: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  filterChips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: themeColors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: themeColors.border,
-  },
-  chipActive: {
-    backgroundColor: themeColors.primary,
-    borderColor: themeColors.primary,
-  },
-  chipText: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  permissionIconWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: themeColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  permissionTitle: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  permissionText: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xl,
-  },
-  permissionHint: {
-    ...typography.captionMuted,
-    fontSize: 11,
-    color: themeColors.textTertiary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.xl,
-  },
-  primaryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    backgroundColor: themeColors.primary,
-    borderRadius: radius.md,
-  },
-  primaryButtonText: {
-    ...typography.bodyBold,
-    color: '#fff',
-  },
-  scroll: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.bodyBold,
-    color: themeColors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -GRID_GAP / 2,
-  },
-  gridItem: {
-    margin: GRID_GAP / 2,
-    backgroundColor: themeColors.surface,
-    overflow: 'hidden',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  videoBadge: {
-    position: 'absolute',
-    bottom: spacing.xs,
-    right: spacing.xs,
-  },
-  emptyTitle: {
-    ...typography.title,
-    fontSize: 18,
-    color: themeColors.text,
-    marginTop: spacing.md,
-  },
-  emptySubtitle: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  loadMore: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-});

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, typography } from '../../theme';
+import { spacing, typography } from '../../theme';
 import { apiService } from '../../services/api';
-import { Post, Comment } from '../../types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Comment } from '../../types';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
 
 type PostDetailParams = { postId?: string };
@@ -35,16 +35,12 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString();
 }
 
-/**
- * Экран поста с комментариями — данные с API getPost, getComments; like/save, createComment
- */
 export const PostDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { colors } = useTheme();
   const route = useRoute<RouteProp<{ PostDetail: PostDetailParams }, 'PostDetail'>>();
   const { width } = useWindowDimensions();
-  // postId: из params и из state текущего стека (на случай задержки обновления route)
   const rawFromRoute = route.params?.postId;
   const rawFromNavState = (() => {
     try {
@@ -57,62 +53,67 @@ export const PostDetailScreen: React.FC = () => {
   })();
   const rawPostId = rawFromRoute ?? rawFromNavState;
   const postId = rawPostId != null && rawPostId !== '' ? String(rawPostId) : undefined;
-  const queryClient = useQueryClient();
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+
   const postQuery = useQuery({
     queryKey: ['post', postId],
     enabled: !!postId,
     queryFn: async () => apiService.getPost(postId as string),
     retry: 2,
     retryDelay: 1000,
-    onSuccess: (data: any) => {
-      const p = data as any;
-      setPost({
-        id: p.id,
-        userId: p.userId,
-        user: p.user ?? { id: p.userId, username: '?', avatarUrl: undefined },
-        caption: p.caption,
-        location: p.location,
-        media: p.media ?? [],
-        likesCount: p.likesCount ?? 0,
-        commentsCount: p.commentsCount ?? 0,
-        isLiked: p.isLiked ?? false,
-        isSaved: p.isSaved ?? false,
-        createdAt: p.createdAt ?? '',
-      });
-      setIsLiked(p.isLiked ?? false);
-      setIsSaved(p.isSaved ?? false);
-      setLikesCount(p.likesCount ?? 0);
-    },
-    onError: () => setPost(null),
   });
+
+  const post = useMemo(() => {
+    const p = postQuery.data as any;
+    if (!p) return null;
+    return {
+      id: p.id as string,
+      userId: p.userId as string,
+      user: p.user ?? { id: p.userId, username: '?', avatarUrl: undefined },
+      caption: p.caption as string | undefined,
+      location: p.location as string | undefined,
+      media: (p.media ?? []) as Array<{ id: string; url: string; type: string; thumbnailUrl?: string; order: number }>,
+      likesCount: (p.likesCount ?? 0) as number,
+      commentsCount: (p.commentsCount ?? 0) as number,
+      isLiked: (p.isLiked ?? false) as boolean,
+      isSaved: (p.isSaved ?? false) as boolean,
+      createdAt: (p.createdAt ?? '') as string,
+    };
+  }, [postQuery.data]);
+
+  useEffect(() => {
+    if (post) {
+      setIsLiked(post.isLiked);
+      setIsSaved(post.isSaved);
+      setLikesCount(post.likesCount);
+    }
+  }, [post?.id, post?.isLiked, post?.isSaved, post?.likesCount]);
 
   const commentsQuery = useQuery({
     queryKey: ['comments', postId],
     enabled: !!postId,
     queryFn: async () => apiService.getComments(postId as string, 1, 50),
-    onSuccess: (res: any) => {
-      const list = (res?.comments ?? []).map((c: any) => ({
-        id: c.id,
-        postId: c.postId,
-        userId: c.userId,
-        user: c.user ?? { id: c.userId, username: '?', avatarUrl: undefined },
-        text: c.text,
-        parentId: c.parentId,
-        replies: c.replies ?? [],
-        createdAt: c.createdAt ?? '',
-      }));
-      setComments(list);
-    },
-    onError: () => setComments([]),
   });
+
+  const comments: Comment[] = useMemo(() => {
+    const res = commentsQuery.data as any;
+    if (!res?.comments) return [];
+    return (res.comments as any[]).map((c: any) => ({
+      id: c.id,
+      postId: c.postId,
+      userId: c.userId,
+      user: c.user ?? { id: c.userId, username: '?', avatarUrl: undefined },
+      text: c.text,
+      parentId: c.parentId,
+      replies: c.replies ?? [],
+      createdAt: c.createdAt ?? '',
+    }));
+  }, [commentsQuery.data]);
 
   const likeMutation = useMutation({
     mutationFn: () => apiService.likePost(postId as string),
@@ -144,43 +145,50 @@ export const PostDetailScreen: React.FC = () => {
       await apiService.createComment(postId, text);
       setCommentText('');
       await commentsQuery.refetch();
-      if (post) setPost({ ...post, commentsCount: post.commentsCount + 1 });
     } catch {
       // ignore
     } finally {
       setSending(false);
     }
-  }, [postId, commentText, sending, commentsQuery, post]);
+  }, [postId, commentText, sending, commentsQuery]);
 
   if (!postId) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Пост не найден</Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>Пост не найден</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.link}>Назад</Text>
+          <Text style={[styles.link, { color: colors.primary }]}>Назад</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (postQuery.isLoading && !post) {
+  if (postQuery.isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  if (!post && !postQuery.isLoading) {
+  if (!post && postQuery.isError) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>Не удалось загрузить пост</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>Не удалось загрузить пост</Text>
         <TouchableOpacity onPress={() => postQuery.refetch()} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Повторить</Text>
+          <Text style={[styles.retryButtonText, { color: colors.primary }]}>Повторить</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.link}>Назад</Text>
+          <Text style={[styles.link, { color: colors.primary }]}>Назад</Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!post) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -211,11 +219,11 @@ export const PostDetailScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Публикация</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Публикация</Text>
         <TouchableOpacity style={styles.headerButton}>
           <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -228,17 +236,14 @@ export const PostDetailScreen: React.FC = () => {
       >
         <View style={styles.post}>
           <View style={styles.postHeader}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
               {user?.avatarUrl ? (
                 <SmartImage uri={user.avatarUrl} style={styles.avatarImg} />
               ) : (
-                <Ionicons name="person" size={24} color={colors.textTertiary} />
+                <Ionicons name="person" size={18} color={colors.textTertiary} />
               )}
             </View>
-            <View style={styles.postHeaderText}>
-              <Text style={styles.username}>{username}</Text>
-              <Text style={styles.time}>{timeStr}</Text>
-            </View>
+            <Text style={[styles.username, { color: colors.text }]}>{username}</Text>
           </View>
           <View style={[styles.media, { width, height: width }]}>
             {firstMedia?.url ? (
@@ -254,12 +259,12 @@ export const PostDetailScreen: React.FC = () => {
               <TouchableOpacity onPress={handleLike} style={styles.actionBtn} activeOpacity={0.8}>
                 <Ionicons
                   name={isLiked ? 'heart' : 'heart-outline'}
-                  size={28}
+                  size={26}
                   color={isLiked ? colors.like : colors.text}
                 />
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn}>
-                <Ionicons name="chatbubble-outline" size={26} color={colors.text} />
+                <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn}>
                 <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
@@ -274,32 +279,31 @@ export const PostDetailScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
           {likesCount > 0 && (
-            <View style={styles.likesRow}>
-              <Text style={styles.likesCount}>{likesCount} нравится</Text>
-            </View>
+            <Text style={[styles.likesCount, { color: colors.text }]}>{likesCount} нравится</Text>
           )}
           {(post.caption != null && post.caption !== '') && (
             <View style={styles.caption}>
-              <Text style={styles.captionText}>
+              <Text style={[styles.captionText, { color: colors.text }]}>
                 <Text style={styles.usernameBold}>{username}</Text>
-                {' ' + post.caption}
+                {'  '}{post.caption}
               </Text>
             </View>
           )}
+          <Text style={[styles.time, { color: colors.textTertiary }]}>{timeStr}</Text>
         </View>
 
         <View style={styles.commentsSection}>
-          <Text style={styles.commentsTitle}>Комментарии ({comments.length})</Text>
+          <Text style={[styles.commentsTitle, { color: colors.text }]}>Комментарии ({comments.length})</Text>
           {comments.map(renderComment)}
         </View>
       </ScrollView>
 
-      <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm }]}>
-        <View style={styles.avatarSmall}>
-          <Ionicons name="person" size={18} color={colors.textTertiary} />
+      <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <View style={[styles.avatarSmall, { backgroundColor: colors.surface }]}>
+          <Ionicons name="person" size={16} color={colors.textTertiary} />
         </View>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Добавьте комментарий..."
           placeholderTextColor={colors.textTertiary}
           value={commentText}
@@ -314,7 +318,9 @@ export const PostDetailScreen: React.FC = () => {
           {sending ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.sendText, !commentText.trim() && styles.sendTextDisabled]}>Отправить</Text>
+            <Text style={[styles.sendText, { color: colors.primary }, !commentText.trim() && { color: colors.textTertiary }]}>
+              Отправить
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -325,17 +331,14 @@ export const PostDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: themeColors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
   },
   headerButton: {
     width: 40,
@@ -345,7 +348,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.bodyBold,
-    color: themeColors.text,
+    fontSize: 16,
   },
   scroll: {
     flex: 1,
@@ -353,44 +356,39 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
   },
-  post: {
-    backgroundColor: themeColors.surface,
-    marginBottom: spacing.lg,
-  },
+  post: {},
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: themeColors.background,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
     overflow: 'hidden',
   },
   avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  postHeaderText: {
-    flex: 1,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   username: {
     ...typography.bodyBold,
-    color: themeColors.text,
+    fontSize: 13,
   },
   time: {
     ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    marginTop: 2,
+    fontSize: 11,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   media: {
-    backgroundColor: themeColors.background,
+    backgroundColor: '#000',
   },
   mediaImage: {
     width: '100%',
@@ -405,41 +403,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.xs,
   },
   actionsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   actionBtn: {
     padding: spacing.sm,
   },
-  likesRow: {
+  likesCount: {
+    ...typography.bodyBold,
+    fontSize: 13,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
-  likesCount: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-  },
   caption: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xs,
   },
   captionText: {
     ...typography.body,
-    color: themeColors.text,
+    fontSize: 13,
+    lineHeight: 18,
   },
   usernameBold: {
     ...typography.bodyBold,
+    fontSize: 13,
   },
   commentsSection: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   commentsTitle: {
     ...typography.bodyBold,
-    color: themeColors.text,
+    fontSize: 14,
     marginBottom: spacing.md,
   },
   commentRow: {
@@ -448,62 +447,59 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: themeColors.background,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
     overflow: 'hidden',
   },
   commentAvatarImg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   commentBody: {
     flex: 1,
   },
   commentText: {
     ...typography.body,
-    color: themeColors.text,
+    fontSize: 13,
+    lineHeight: 18,
   },
   commentUser: {
     fontWeight: '600',
   },
   commentTime: {
     ...typography.captionMuted,
-    color: themeColors.textTertiary,
+    fontSize: 11,
     marginTop: 2,
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: themeColors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: themeColors.border,
     gap: spacing.sm,
   },
   avatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: themeColors.background,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   input: {
     flex: 1,
     ...typography.body,
-    color: themeColors.text,
+    fontSize: 14,
     paddingVertical: spacing.sm,
     padding: 0,
   },
   sendButton: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
   sendDisabled: {
@@ -511,10 +507,7 @@ const styles = StyleSheet.create({
   },
   sendText: {
     ...typography.bodyBold,
-    color: themeColors.primary,
-  },
-  sendTextDisabled: {
-    color: themeColors.textTertiary,
+    fontSize: 13,
   },
   centered: {
     flex: 1,
@@ -523,12 +516,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.body,
-    color: themeColors.textSecondary,
     marginBottom: spacing.md,
   },
   link: {
     ...typography.bodyBold,
-    color: themeColors.primary,
   },
   retryButton: {
     marginTop: spacing.sm,
@@ -537,6 +528,5 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...typography.bodyBold,
-    color: themeColors.primary,
   },
 });

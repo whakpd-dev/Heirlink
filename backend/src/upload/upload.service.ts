@@ -11,7 +11,7 @@ const ALLOWED_VIDEO_MIMES = ['video/mp4', 'video/quicktime'];
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
 
-export type UploadType = 'posts' | 'avatars' | 'stories';
+export type UploadType = 'posts' | 'avatars' | 'stories' | 'albums';
 
 const MAX_IMAGE_DIMENSION = 2048;
 const IMAGE_QUALITY = 85;

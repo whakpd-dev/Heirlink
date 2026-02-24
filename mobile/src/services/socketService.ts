@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config';
+import { tokenStorage } from './tokenStorage';
 
 type EventHandler = (data: any) => void;
 
@@ -8,22 +8,19 @@ class SocketService {
   private socket: Socket | null = null;
   private listeners = new Map<string, Set<EventHandler>>();
   private connecting = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   async connect() {
-    // Если уже подключен, не делаем ничего
     if (this.socket?.connected) return;
-    
-    // Если уже идет подключение, ждем
     if (this.connecting) return;
-    
-    // Если сокет существует но не подключен, отключаем его перед созданием нового
+
     if (this.socket) {
       this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }
 
-    const token = await AsyncStorage.getItem('accessToken');
+    const token = await tokenStorage.getAccessToken();
     if (!token) return;
 
     this.connecting = true;
@@ -35,7 +32,7 @@ class SocketService {
       reconnectionDelay: 2000,
       reconnectionAttempts: 10,
       upgrade: true,
-      forceNew: false, // Переиспользуем соединение если возможно
+      forceNew: false,
     });
 
     this.socket.on('connect', () => {
@@ -46,11 +43,17 @@ class SocketService {
     this.socket.on('disconnect', (reason) => {
       this.connecting = false;
       if (__DEV__) console.log('[Socket] Disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        this.scheduleReconnectWithFreshToken();
+      }
     });
 
     this.socket.on('connect_error', (err) => {
       this.connecting = false;
       if (__DEV__) console.log('[Socket] Connection error:', err.message);
+      if (err.message?.includes('jwt') || err.message?.includes('unauthorized')) {
+        this.scheduleReconnectWithFreshToken();
+      }
     });
 
     for (const [event, handlers] of this.listeners) {
@@ -60,8 +63,21 @@ class SocketService {
     }
   }
 
+  private scheduleReconnectWithFreshToken() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      this.disconnect();
+      await this.connect();
+    }, 3000);
+  }
+
   disconnect() {
     this.connecting = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.socket?.removeAllListeners();
     this.socket?.disconnect();
     this.socket = null;
@@ -71,7 +87,9 @@ class SocketService {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)!.add(handler);
+    const handlers = this.listeners.get(event)!;
+    if (handlers.has(handler)) return () => this.off(event, handler);
+    handlers.add(handler);
     this.socket?.on(event, handler);
     return () => this.off(event, handler);
   }

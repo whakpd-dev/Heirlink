@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { socketService } from '../../services/socketService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -81,6 +81,262 @@ export const ChatThreadScreen: React.FC = () => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingAnimation = useRef(new Animated.Value(0)).current;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        centered: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        errorText: {
+          ...typography.body,
+          marginBottom: spacing.md,
+          color: colors.text,
+        },
+        backBtn: {
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+        },
+        backBtnText: {
+          ...typography.body,
+          fontWeight: '600',
+          color: colors.primary,
+        },
+        retryButton: {
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+          borderRadius: 8,
+          backgroundColor: colors.primary,
+        },
+        retryButtonText: {
+          ...typography.body,
+          fontWeight: '600',
+          color: '#fff',
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.sm,
+          paddingBottom: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
+        },
+        headerBack: {
+          padding: spacing.sm,
+          marginRight: spacing.xs,
+        },
+        avatarWrap: {
+          marginRight: spacing.sm,
+        },
+        avatar: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          overflow: 'hidden',
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+        },
+        avatarImage: {
+          width: 36,
+          height: 36,
+        },
+        headerTitle: {
+          ...typography.body,
+          fontWeight: '600',
+          color: colors.text,
+        },
+        headerSubtitle: {
+          fontSize: 11,
+          marginTop: 1,
+          color: colors.primary,
+        },
+        loading: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        listContent: {
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.md,
+        },
+        empty: {
+          paddingVertical: spacing.xxl,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+        },
+        emptyText: {
+          ...typography.caption,
+          color: colors.textTertiary,
+        },
+        dateHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginVertical: spacing.md,
+          paddingHorizontal: spacing.md,
+        },
+        dateHeaderLine: {
+          flex: 1,
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: colors.border,
+        },
+        dateHeaderText: {
+          ...typography.captionMuted,
+          fontSize: 11,
+          marginHorizontal: spacing.sm,
+          textTransform: 'capitalize',
+          color: colors.textTertiary,
+        },
+        bubbleWrap: {
+          marginBottom: spacing.xs,
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+        },
+        bubbleWrapLeft: {
+          justifyContent: 'flex-start',
+        },
+        bubbleWrapRight: {
+          justifyContent: 'flex-end',
+        },
+        avatarSmall: {
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          overflow: 'hidden',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: spacing.xs,
+          marginBottom: spacing.xs,
+          backgroundColor: colors.background,
+        },
+        avatarSmallImage: {
+          width: 20,
+          height: 20,
+        },
+        avatarSpacer: {
+          width: 20,
+          marginRight: spacing.xs,
+        },
+        bubble: {
+          maxWidth: '75%',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm + 2,
+          borderRadius: 18,
+          borderWidth: StyleSheet.hairlineWidth,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 2,
+        },
+        bubbleMine: {
+          borderBottomRightRadius: 4,
+          backgroundColor: colors.primary,
+          shadowColor: colors.primary,
+        },
+        bubbleTheirs: {
+          borderBottomLeftRadius: 4,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          shadowColor: colors.shadow,
+        },
+        bubbleText: {
+          ...typography.body,
+          lineHeight: 20,
+        },
+        bubbleFooter: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 4,
+          alignSelf: 'flex-end',
+        },
+        bubbleTime: {
+          ...typography.captionMuted,
+          fontSize: 10,
+        },
+        readIcon: {
+          marginLeft: 4,
+        },
+        typingContainer: {
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          alignItems: 'flex-start',
+          backgroundColor: colors.background,
+        },
+        typingBubble: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: 18,
+          borderBottomLeftRadius: 4,
+          borderWidth: StyleSheet.hairlineWidth,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 1,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+        typingDot: {
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: colors.textTertiary,
+        },
+        inputRow: {
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          gap: spacing.sm,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        inputWrapper: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: 24,
+          borderWidth: StyleSheet.hairlineWidth,
+          paddingHorizontal: spacing.md,
+          minHeight: 44,
+          maxHeight: 120,
+          backgroundColor: colors.background,
+          borderColor: colors.border,
+        },
+        input: {
+          flex: 1,
+          paddingVertical: spacing.sm,
+          ...typography.body,
+          maxHeight: 100,
+          color: colors.text,
+        },
+        inputClear: {
+          padding: spacing.xs,
+          marginLeft: spacing.xs,
+        },
+        sendBtn: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          justifyContent: 'center',
+          alignItems: 'center',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+      }),
+    [colors],
+  );
 
   const userQuery = useQuery({
     queryKey: ['user', otherUserId],
@@ -210,11 +466,11 @@ export const ChatThreadScreen: React.FC = () => {
         <View>
           {showDateHeader && (
             <View style={styles.dateHeader}>
-              <View style={[styles.dateHeaderLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dateHeaderText, { color: colors.textTertiary }]}>
+              <View style={styles.dateHeaderLine} />
+              <Text style={styles.dateHeaderText}>
                 {formatDate(item.createdAt)}
               </Text>
-              <View style={[styles.dateHeaderLine, { backgroundColor: colors.border }]} />
+              <View style={styles.dateHeaderLine} />
             </View>
           )}
           <View
@@ -224,7 +480,7 @@ export const ChatThreadScreen: React.FC = () => {
             ]}
           >
             {!item.isFromMe && showAvatar && (
-              <View style={[styles.avatarSmall, { backgroundColor: colors.background }]}>
+              <View style={styles.avatarSmall}>
                 {item.sender?.avatarUrl ? (
                   <SmartImage uri={item.sender.avatarUrl} style={styles.avatarSmallImage} />
                 ) : (
@@ -236,16 +492,7 @@ export const ChatThreadScreen: React.FC = () => {
             <View
               style={[
                 styles.bubble,
-                item.isFromMe
-                  ? [styles.bubbleMine, { 
-                      backgroundColor: colors.primary,
-                      shadowColor: colors.primary,
-                    }]
-                  : [styles.bubbleTheirs, { 
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      shadowColor: colors.shadow,
-                    }],
+                item.isFromMe ? styles.bubbleMine : styles.bubbleTheirs,
               ]}
             >
               <Text
@@ -279,10 +526,10 @@ export const ChatThreadScreen: React.FC = () => {
 
   if (!otherUserId) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>Выберите диалог</Text>
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>Выберите диалог</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={[styles.backBtnText, { color: colors.primary }]}>Назад</Text>
+          <Text style={styles.backBtnText}>Назад</Text>
         </TouchableOpacity>
       </View>
     );
@@ -290,13 +537,13 @@ export const ChatThreadScreen: React.FC = () => {
 
   if (userQuery.isError && !userQuery.isFetching && !otherUser) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>Не удалось загрузить чат</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => userQuery.refetch()} activeOpacity={0.8}>
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>Не удалось загрузить чат</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => userQuery.refetch()} activeOpacity={0.8}>
           <Text style={styles.retryButtonText}>Повторить</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { marginTop: spacing.sm }]}>
-          <Text style={[styles.backBtnText, { color: colors.primary }]}>Назад</Text>
+          <Text style={styles.backBtnText}>Назад</Text>
         </TouchableOpacity>
       </View>
     );
@@ -306,11 +553,11 @@ export const ChatThreadScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.headerBack}
@@ -319,7 +566,7 @@ export const ChatThreadScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.avatarWrap}>
-          <View style={[styles.avatar, { backgroundColor: colors.background }]}>
+          <View style={styles.avatar}>
             {otherUser?.avatarUrl ? (
               <SmartImage uri={otherUser.avatarUrl} style={styles.avatarImage} />
             ) : (
@@ -327,20 +574,20 @@ export const ChatThreadScreen: React.FC = () => {
             )}
           </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={() => otherUserId && (navigation as any).push('Profile', { userId: otherUserId })} activeOpacity={0.7}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {username}
           </Text>
           {isTyping && (
-            <Text style={[styles.headerSubtitle, { color: colors.primary }]}>печатает...</Text>
+            <Text style={styles.headerSubtitle}>печатает...</Text>
           )}
-        </View>
+        </TouchableOpacity>
       </View>
 
       {messagesQuery.isError && messages.length === 0 ? (
-        <View style={[styles.empty, { flex: 1, justifyContent: 'center' }]}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary }]}>Не удалось загрузить сообщения</Text>
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary, marginTop: spacing.md }]} onPress={() => messagesQuery.refetch()} activeOpacity={0.8}>
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>Не удалось загрузить сообщения</Text>
+          <TouchableOpacity style={[styles.retryButton, { marginTop: spacing.md }]} onPress={() => messagesQuery.refetch()} activeOpacity={0.8}>
             <Text style={styles.retryButtonText}>Повторить</Text>
           </TouchableOpacity>
         </View>
@@ -353,12 +600,16 @@ export const ChatThreadScreen: React.FC = () => {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => renderMessage({ item, index })}
+          renderItem={renderMessage}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={15}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="chatbubble-outline" size={64} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textTertiary, marginTop: spacing.md }]}>
+              <Text style={[styles.emptyText, { marginTop: spacing.md }]}>
                 Напишите первым
               </Text>
             </View>
@@ -371,13 +622,12 @@ export const ChatThreadScreen: React.FC = () => {
       )}
 
       {isTyping && (
-        <View style={[styles.typingContainer, { backgroundColor: colors.background }]}>
-          <View style={[styles.typingBubble, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.typingContainer}>
+          <View style={styles.typingBubble}>
             <Animated.View
               style={[
                 styles.typingDot,
                 {
-                  backgroundColor: colors.textTertiary,
                   opacity: typingAnimation.interpolate({
                     inputRange: [0, 0.5, 1],
                     outputRange: [0.3, 1, 0.3],
@@ -389,7 +639,6 @@ export const ChatThreadScreen: React.FC = () => {
               style={[
                 styles.typingDot,
                 {
-                  backgroundColor: colors.textTertiary,
                   opacity: typingAnimation.interpolate({
                     inputRange: [0, 0.5, 1],
                     outputRange: [0.3, 1, 0.3],
@@ -402,7 +651,6 @@ export const ChatThreadScreen: React.FC = () => {
               style={[
                 styles.typingDot,
                 {
-                  backgroundColor: colors.textTertiary,
                   opacity: typingAnimation.interpolate({
                     inputRange: [0, 0.5, 1],
                     outputRange: [0.3, 1, 0.3],
@@ -416,24 +664,11 @@ export const ChatThreadScreen: React.FC = () => {
       )}
 
       <View
-        style={[
-          styles.inputRow,
-          {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            paddingBottom: insets.bottom + spacing.sm,
-            paddingTop: spacing.sm,
-          },
-        ]}
+        style={[styles.inputRow, { paddingBottom: insets.bottom + spacing.sm }]}
       >
-        <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View style={styles.inputWrapper}>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-              },
-            ]}
+            style={styles.input}
             placeholder="Сообщение"
             placeholderTextColor={colors.textTertiary}
             value={inputText}
@@ -475,226 +710,3 @@ export const ChatThreadScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    marginBottom: spacing.md,
-  },
-  backBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  backBtnText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  retryButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerBack: {
-    padding: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  avatarWrap: {
-    marginRight: spacing.sm,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-  },
-  headerTitle: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  empty: {
-    paddingVertical: spacing.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  emptyText: {
-    ...typography.caption,
-  },
-  dateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  dateHeaderLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-  },
-  dateHeaderText: {
-    ...typography.captionMuted,
-    fontSize: 11,
-    marginHorizontal: spacing.sm,
-    textTransform: 'capitalize',
-  },
-  bubbleWrap: {
-    marginBottom: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  bubbleWrapLeft: {
-    justifyContent: 'flex-start',
-  },
-  bubbleWrapRight: {
-    justifyContent: 'flex-end',
-  },
-  avatarSmall: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  avatarSmallImage: {
-    width: 20,
-    height: 20,
-  },
-  avatarSpacer: {
-    width: 20,
-    marginRight: spacing.xs,
-  },
-  bubble: {
-    maxWidth: '75%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  bubbleMine: {
-    borderBottomRightRadius: 4,
-  },
-  bubbleTheirs: {
-    borderBottomLeftRadius: 4,
-  },
-  bubbleText: {
-    ...typography.body,
-    lineHeight: 20,
-  },
-  bubbleFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  bubbleTime: {
-    ...typography.captionMuted,
-    fontSize: 10,
-  },
-  readIcon: {
-    marginLeft: 4,
-  },
-  typingContainer: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  typingBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: spacing.sm,
-  },
-  inputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    maxHeight: 120,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    ...typography.body,
-    maxHeight: 100,
-  },
-  inputClear: {
-    padding: spacing.xs,
-    marginLeft: spacing.xs,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-});

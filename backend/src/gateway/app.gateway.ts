@@ -12,8 +12,16 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 
+function getAllowedOrigins(): string[] | boolean {
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL.split(',').map((s) => s.trim());
+  }
+  return isProduction ? false : true;
+}
+
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: { origin: getAllowedOrigins(), credentials: true },
   namespace: '/',
 })
 export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {

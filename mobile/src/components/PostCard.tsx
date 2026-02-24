@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Platform,
   FlatList,
   ViewToken,
   Animated,
@@ -15,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../types/index';
 import { useTheme } from '../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../theme';
+import { spacing, radius, typography } from '../theme';
 import { apiService } from '../services/api';
 import { SmartImage } from './SmartImage';
 
@@ -26,8 +25,6 @@ interface PostCardProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_PADDING = spacing.lg;
-const MEDIA_WIDTH = SCREEN_WIDTH - CARD_PADDING * 2;
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -146,24 +143,24 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+    <View style={[styles.card, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerLeft}
           onPress={openAuthorProfile}
           activeOpacity={0.7}
         >
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
             {user?.avatarUrl ? (
               <SmartImage uri={user.avatarUrl} style={styles.avatarImage} />
             ) : (
-              <Ionicons name="person" size={20} color={colors.textTertiary} />
+              <Ionicons name="person" size={18} color={colors.textTertiary} />
             )}
           </View>
-          <View style={styles.headerText}>
-            <Text style={styles.username}>{username}</Text>
-            <Text style={styles.time}>{timeStr}</Text>
-          </View>
+          <Text style={[styles.username, { color: colors.text }]}>{username}</Text>
+          {post?.location ? (
+            <Text style={[styles.location, { color: colors.textSecondary }]}>{post.location}</Text>
+          ) : null}
         </TouchableOpacity>
         <TouchableOpacity style={styles.moreButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
@@ -187,26 +184,27 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
                 </View>
               )}
             />
-            <View style={styles.dotsRow}>
-              {mediaList.map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    { backgroundColor: i === activeMediaIndex ? colors.primary : colors.border },
-                  ]}
-                />
-              ))}
-            </View>
+            {mediaList.length > 1 && (
+              <View style={styles.dotsRow}>
+                {mediaList.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: i === activeMediaIndex ? colors.primary : 'rgba(255,255,255,0.4)' },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.media}>
             {mediaList[0]?.url ? (
               <SmartImage uri={mediaList[0].url} style={styles.mediaImage} />
             ) : (
-              <View style={styles.mediaPlaceholder}>
+              <View style={[styles.mediaPlaceholder, { backgroundColor: colors.surface }]}>
                 <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
-                <Text style={styles.mediaLabel}>Фото</Text>
               </View>
             )}
           </View>
@@ -248,46 +246,32 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
       </View>
 
       {likesCount > 0 && (
-        <View style={styles.likesRow}>
-          <Text style={styles.likesCount}>{likesCount} нравится</Text>
-        </View>
+        <Text style={[styles.likesCount, { color: colors.text }]}>{likesCount} нравится</Text>
       )}
 
       {(post?.caption != null && post.caption !== '') && (
         <View style={styles.caption}>
-          <Text style={styles.captionText} numberOfLines={2}>
+          <Text style={[styles.captionText, { color: colors.text }]} numberOfLines={2}>
             <Text style={styles.usernameInline}>{username}</Text>
-            <Text style={styles.captionBody}> {post.caption}</Text>
+            {'  '}{post.caption}
           </Text>
         </View>
       )}
+
+      <Text style={[styles.time, { color: colors.textTertiary }]}>{timeStr}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: CARD_PADDING,
-    marginBottom: spacing.xl,
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: themeColors.shadowStrong,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    marginBottom: spacing.xs,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -296,44 +280,50 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: themeColors.background,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
-  },
-  headerText: {
-    flex: 1,
+    overflow: 'hidden',
   },
   username: {
     ...typography.bodyBold,
-    color: themeColors.text,
+    fontSize: 13,
+  },
+  location: {
+    ...typography.captionMuted,
+    fontSize: 11,
+    marginLeft: spacing.xs,
   },
   time: {
     ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    marginTop: 2,
+    fontSize: 11,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   moreButton: {
     padding: spacing.xs,
   },
   avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   media: {
-    width: SCREEN_WIDTH - CARD_PADDING * 2,
+    width: SCREEN_WIDTH,
     aspectRatio: 1,
-    backgroundColor: themeColors.background,
+    backgroundColor: '#000',
   },
   dotsRow: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: spacing.sm,
     gap: 4,
   },
   dot: {
@@ -356,47 +346,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  mediaLabel: {
-    ...typography.caption,
-    color: themeColors.textTertiary,
-  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.xs,
   },
   actionsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   actionButton: {
     padding: spacing.sm,
   },
-  likesRow: {
+  likesCount: {
+    ...typography.bodyBold,
+    fontSize: 13,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
-  likesCount: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-  },
   caption: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xs,
   },
   captionText: {
     ...typography.body,
-    color: themeColors.text,
+    fontSize: 13,
+    lineHeight: 18,
   },
   usernameInline: {
     ...typography.bodyBold,
-    color: themeColors.text,
-  },
-  captionBody: {
-    ...typography.body,
-    color: themeColors.textSecondary,
+    fontSize: 13,
   },
 });

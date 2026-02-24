@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, typography } from '../../theme';
+import { spacing, typography } from '../../theme';
 import { apiService } from '../../services/api';
 
 /* ─── types ─── */
@@ -270,6 +270,219 @@ export const GrokChatScreen: React.FC = () => {
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerVisible, setViewerVisible] = useState(false);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1 },
+
+        /* Header */
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.sm,
+          paddingBottom: spacing.sm,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+        backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+        headerCenter: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.sm,
+        },
+        headerTitle: { ...typography.title },
+
+        /* Mode tabs */
+        modeTabs: {
+          flexDirection: 'row',
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+        modeTab: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          paddingVertical: 10,
+          borderBottomWidth: 2,
+          borderBottomColor: 'transparent',
+        },
+        modeTabActive: {
+          borderBottomWidth: 2,
+        },
+        modeTabLabel: {
+          fontSize: 13,
+          fontWeight: '500',
+        },
+        modeTabLabelActive: {
+          fontWeight: '700',
+        },
+
+        /* Mode hint */
+        modeHint: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: spacing.md,
+          paddingVertical: 6,
+        },
+        modeHintText: {
+          fontSize: 12,
+          flex: 1,
+        },
+
+        /* Error */
+        errorBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        errorText: { flex: 1, ...typography.caption },
+
+        /* Messages list */
+        listContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+        empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+        emptyTitle: { ...typography.title, marginTop: spacing.md },
+        emptySubtitle: { ...typography.caption, marginTop: spacing.xs, textAlign: 'center' },
+
+        /* Bubbles */
+        bubbleWrap: { marginBottom: spacing.sm },
+        bubbleLeft: { alignItems: 'flex-start' },
+        bubbleRight: { alignItems: 'flex-end' },
+        bubble: {
+          maxWidth: '85%',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: 18,
+          borderWidth: StyleSheet.hairlineWidth,
+        },
+        bubbleUser: { borderBottomRightRadius: 4 },
+        bubbleAssistant: { borderBottomLeftRadius: 4 },
+        bubbleText: { ...typography.body },
+
+        /* User media thumbnails */
+        mediaThumbs: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 4,
+          marginBottom: spacing.xs,
+        },
+        mediaThumb: {
+          width: 80,
+          height: 80,
+          borderRadius: 12,
+        },
+
+        /* Generated media */
+        genMediaWrap: {
+          marginBottom: spacing.xs,
+          alignItems: 'center',
+        },
+        genImage: {
+          width: 260,
+          height: 260,
+          borderRadius: 14,
+          marginBottom: 4,
+        },
+        genVideo: {
+          width: 260,
+          height: 200,
+          borderRadius: 14,
+          marginBottom: 4,
+        },
+        mediaActions: {
+          flexDirection: 'row',
+          gap: 8,
+          marginTop: 6,
+        },
+        mediaActionBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 14,
+        },
+        mediaActionText: {
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: '600',
+        },
+
+        /* Polling */
+        pollingRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: spacing.xs,
+        },
+        pollingText: { fontSize: 13 },
+
+        /* Attached media */
+        attachedRow: {
+          flexDirection: 'row',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          gap: spacing.sm,
+        },
+        attachedItem: { position: 'relative' },
+        attachedThumb: {
+          width: 60,
+          height: 60,
+          borderRadius: 10,
+        },
+        attachedRemove: {
+          position: 'absolute',
+          top: -6,
+          right: -6,
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+
+        /* Input */
+        inputRow: {
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          gap: spacing.xs,
+        },
+        attachBtn: {
+          width: 40,
+          height: 44,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        input: {
+          flex: 1,
+          minHeight: 44,
+          maxHeight: 120,
+          borderRadius: 22,
+          borderWidth: StyleSheet.hairlineWidth,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          ...typography.body,
+        },
+        sendBtn: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+      }),
+    [colors],
+  );
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -736,6 +949,10 @@ export const GrokChatScreen: React.FC = () => {
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        initialNumToRender={10}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 140 }]}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -832,215 +1049,3 @@ export const GrokChatScreen: React.FC = () => {
   );
 };
 
-/* ═══════════════════════════════════════════
-   Styles
-   ═══════════════════════════════════════════ */
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-
-  /* Header */
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  headerTitle: { ...typography.title },
-
-  /* Mode tabs */
-  modeTabs: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  modeTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  modeTabActive: {
-    borderBottomWidth: 2,
-  },
-  modeTabLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  modeTabLabelActive: {
-    fontWeight: '700',
-  },
-
-  /* Mode hint */
-  modeHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-  },
-  modeHintText: {
-    fontSize: 12,
-    flex: 1,
-  },
-
-  /* Error */
-  errorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  errorText: { flex: 1, ...typography.caption },
-
-  /* Messages list */
-  listContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-  emptyTitle: { ...typography.title, marginTop: spacing.md },
-  emptySubtitle: { ...typography.caption, marginTop: spacing.xs, textAlign: 'center' },
-
-  /* Bubbles */
-  bubbleWrap: { marginBottom: spacing.sm },
-  bubbleLeft: { alignItems: 'flex-start' },
-  bubbleRight: { alignItems: 'flex-end' },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  bubbleUser: { borderBottomRightRadius: 4 },
-  bubbleAssistant: { borderBottomLeftRadius: 4 },
-  bubbleText: { ...typography.body },
-
-  /* User media thumbnails */
-  mediaThumbs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: spacing.xs,
-  },
-  mediaThumb: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-  },
-
-  /* Generated media */
-  genMediaWrap: {
-    marginBottom: spacing.xs,
-    alignItems: 'center',
-  },
-  genImage: {
-    width: 260,
-    height: 260,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  genVideo: {
-    width: 260,
-    height: 200,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  mediaActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
-  },
-  mediaActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  mediaActionText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  /* Polling */
-  pollingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: spacing.xs,
-  },
-  pollingText: { fontSize: 13 },
-
-  /* Attached media */
-  attachedRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: spacing.sm,
-  },
-  attachedItem: { position: 'relative' },
-  attachedThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
-  },
-  attachedRemove: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  /* Input */
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: spacing.xs,
-  },
-  attachBtn: {
-    width: 40,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

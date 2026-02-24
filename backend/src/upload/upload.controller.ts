@@ -17,7 +17,7 @@ import { UploadService, UploadType } from './upload.service';
 import * as path from 'path';
 import * as fs from 'fs';
 
-const UPLOAD_TYPES: UploadType[] = ['posts', 'avatars', 'stories'];
+const UPLOAD_TYPES: UploadType[] = ['posts', 'avatars', 'stories', 'albums'];
 
 @Controller()
 export class UploadController {

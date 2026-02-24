@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Append ?connection_limit=10&pool_timeout=30 to DATABASE_URL for pooling
 }
 
 model User {
@@ -33,7 +34,12 @@ model User {
   notificationsSent     Notification[] @relation("NotificationActor")
   messagesSent          Message[]      @relation("MessageSender")
   messagesReceived      Message[]      @relation("MessageRecipient")
+  ownedAlbums           Album[]
+  albumMemberships      AlbumMember[]
+  albumItems            AlbumItem[]
 
+  @@index([username])
+  @@index([email])
   @@map("users")
 }
 
@@ -67,8 +73,9 @@ model Media {
   order         Int       @default(0)
   createdAt     DateTime  @default(now()) @map("created_at")
   
-  post          Post?     @relation(fields: [postId], references: [id])
-  story         Story?    @relation(fields: [storyId], references: [id])
+  post          Post?      @relation(fields: [postId], references: [id])
+  story         Story?     @relation(fields: [storyId], references: [id])
+  albumItem     AlbumItem?
 
   @@map("media")
   @@index([postId, order])
@@ -187,10 +194,11 @@ model SmartAlbumJob {
 model Notification {
   id         String   @id @default(cuid())
   userId     String   @map("user_id")
-  type       String   // like | comment | follow | comment_reply
+  type       String   // like | comment | follow | comment_reply | album_invite | album_new_item
   actorId    String   @map("actor_id")
   postId     String?  @map("post_id")
   commentId  String?  @map("comment_id")
+  albumId    String?  @map("album_id")
   read       Boolean  @default(false)
   createdAt  DateTime @default(now()) @map("created_at")
 
@@ -198,6 +206,7 @@ model Notification {
   actor      User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, read, createdAt])
   @@map("notifications")
 }
 
@@ -213,6 +222,8 @@ model Message {
 
   @@index([senderId, recipientId, createdAt])
   @@index([recipientId, senderId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([recipientId, createdAt])
   @@map("messages")
 }
 
@@ -229,4 +240,52 @@ model AiAnalysis {
   createdAt     DateTime  @default(now()) @map("created_at")
 
   @@map("ai_analyses")
+}
+
+model Album {
+  id         String        @id @default(cuid())
+  ownerId    String        @map("owner_id")
+  name       String
+  coverUrl   String?       @map("cover_url")
+  visibility String        @default("private") // "public" | "private"
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  owner      User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members    AlbumMember[]
+  items      AlbumItem[]
+
+  @@index([ownerId, createdAt])
+  @@map("albums")
+}
+
+model AlbumMember {
+  id       String   @id @default(cuid())
+  albumId  String   @map("album_id")
+  userId   String   @map("user_id")
+  role     String   @default("editor") // "editor" | "viewer"
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  album    Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, userId])
+  @@index([userId])
+  @@map("album_members")
+}
+
+model AlbumItem {
+  id        String   @id @default(cuid())
+  albumId   String   @map("album_id")
+  addedById String   @map("added_by_id")
+  mediaId   String   @unique @map("media_id")
+  caption   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  addedBy   User     @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([albumId, createdAt])
+  @@map("album_items")
 }

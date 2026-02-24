@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { SmartImage } from '../../components/SmartImage';
 
@@ -27,6 +27,113 @@ export const SmartAlbumItemScreen: React.FC = () => {
   const { colors } = useTheme();
   const route = useRoute<RouteProp<RouteParams, 'SmartAlbumItem'>>();
   const itemId = route.params?.itemId ?? '';
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        centered: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        errorText: {
+          ...typography.body,
+          color: colors.textSecondary,
+          marginBottom: spacing.md,
+        },
+        backBtn: {
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          backgroundColor: colors.primary,
+          borderRadius: radius.md,
+        },
+        backBtnText: {
+          ...typography.bodyBold,
+          color: colors.surface,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        headerBtn: {
+          width: 40,
+          height: 40,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        title: {
+          ...typography.title,
+          color: colors.text,
+        },
+        scroll: {
+          flex: 1,
+        },
+        scrollContent: {
+          padding: spacing.lg,
+        },
+        mediaWrap: {
+          width: '100%',
+          aspectRatio: 1,
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          backgroundColor: colors.surface,
+          marginBottom: spacing.lg,
+        },
+        media: {
+          width: '100%',
+          height: '100%',
+        },
+        mediaPlaceholder: {
+          width: '100%',
+          aspectRatio: 1,
+          borderRadius: radius.lg,
+          backgroundColor: colors.surface,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+        },
+        section: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+        },
+        sectionTitle: {
+          ...typography.bodyBold,
+          color: colors.text,
+          marginBottom: spacing.sm,
+        },
+        row: {
+          flexDirection: 'row',
+          marginBottom: spacing.xs,
+          gap: spacing.sm,
+        },
+        label: {
+          ...typography.caption,
+          color: colors.textTertiary,
+          minWidth: 100,
+        },
+        value: {
+          ...typography.body,
+          color: colors.text,
+          flex: 1,
+        },
+        date: {
+          ...typography.captionMuted,
+          color: colors.textTertiary,
+        },
+      }),
+    [colors],
+  );
 
   const [item, setItem] = useState<{
     id: string;
@@ -92,8 +199,8 @@ export const SmartAlbumItemScreen: React.FC = () => {
     : undefined;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -162,106 +269,3 @@ export const SmartAlbumItemScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  backBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: themeColors.primary,
-    borderRadius: radius.md,
-  },
-  backBtnText: {
-    ...typography.bodyBold,
-    color: themeColors.surface,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.title,
-    color: themeColors.text,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  mediaWrap: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: themeColors.surface,
-    marginBottom: spacing.lg,
-  },
-  media: {
-    width: '100%',
-    height: '100%',
-  },
-  mediaPlaceholder: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: radius.lg,
-    backgroundColor: themeColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  section: {
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-    marginBottom: spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  label: {
-    ...typography.caption,
-    color: themeColors.textTertiary,
-    minWidth: 100,
-  },
-  value: {
-    ...typography.body,
-    color: themeColors.text,
-    flex: 1,
-  },
-  date: {
-    ...typography.captionMuted,
-    color: themeColors.textTertiary,
-  },
-});

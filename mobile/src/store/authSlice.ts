@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { apiService } from '../services/api';
+import { socketService } from '../services/socketService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tokenStorage } from '../services/tokenStorage';
+import { QueryClient } from '@tanstack/react-query';
 
 interface User {
   id: string;
@@ -39,8 +42,8 @@ export const register = createAsyncThunk(
   ) => {
     try {
       const response = await apiService.register(email, username, password);
-      await AsyncStorage.setItem('accessToken', response.accessToken);
-      await AsyncStorage.setItem('refreshToken', response.refreshToken);
+      await tokenStorage.setAccessToken(response.accessToken);
+      await tokenStorage.setRefreshToken(response.refreshToken);
       if (response.user) {
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
       }
@@ -59,8 +62,8 @@ export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }) => {
     const response = await apiService.login(email, password);
-    await AsyncStorage.setItem('accessToken', response.accessToken);
-    await AsyncStorage.setItem('refreshToken', response.refreshToken);
+    await tokenStorage.setAccessToken(response.accessToken);
+    await tokenStorage.setRefreshToken(response.refreshToken);
     if (response.user) {
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
     }
@@ -69,8 +72,8 @@ export const login = createAsyncThunk(
 );
 
 export const checkAuth = createAsyncThunk('auth/checkAuth', async () => {
-  const accessToken = await AsyncStorage.getItem('accessToken');
-  const refreshToken = await AsyncStorage.getItem('refreshToken');
+  const accessToken = await tokenStorage.getAccessToken();
+  const refreshToken = await tokenStorage.getRefreshToken();
   if (!accessToken || !refreshToken) {
     return { accessToken: null, refreshToken: null, user: null };
   }
@@ -88,8 +91,21 @@ export const checkAuth = createAsyncThunk('auth/checkAuth', async () => {
   }
 });
 
+let _queryClient: QueryClient | null = null;
+export function setQueryClientForLogout(qc: QueryClient) {
+  _queryClient = qc;
+}
+
 export const logout = createAsyncThunk('auth/logout', async () => {
-  await AsyncStorage.multiRemove(['accessToken', 'refreshToken', USER_STORAGE_KEY]);
+  const rt = await tokenStorage.getRefreshToken();
+  if (rt) {
+    try { await apiService.logoutServer(rt); } catch { /* best effort */ }
+  }
+  apiService.stopProactiveRefresh();
+  socketService.disconnect();
+  _queryClient?.clear();
+  await tokenStorage.clearTokens();
+  await AsyncStorage.removeItem(USER_STORAGE_KEY);
 });
 
 export const restoreUserFromStorage = createAsyncThunk(

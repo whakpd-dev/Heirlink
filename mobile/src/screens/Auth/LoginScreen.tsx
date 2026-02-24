@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -39,26 +39,96 @@ export const LoginScreen: React.FC = () => {
 
     try {
       await dispatch(login({ email, password })).unwrap();
-      // Навигация произойдет автоматически через AuthNavigator
     } catch (err) {
-      // Ошибка обрабатывается в slice
+      // handled in slice
     }
   };
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        content: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+        },
+        logo: {
+          fontSize: 48,
+          fontWeight: 'bold',
+          textAlign: 'center',
+          marginBottom: 8,
+          color: colors.text,
+        },
+        subtitle: {
+          fontSize: 16,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: 48,
+        },
+        form: {
+          width: '100%',
+        },
+        input: {
+          height: 50,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          paddingHorizontal: 16,
+          fontSize: 16,
+          marginBottom: 16,
+          backgroundColor: colors.surface,
+          color: colors.text,
+        },
+        button: {
+          height: 50,
+          backgroundColor: colors.primary,
+          borderRadius: 8,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginTop: 8,
+        },
+        buttonDisabled: {
+          opacity: 0.6,
+        },
+        buttonText: {
+          color: '#fff',
+          fontSize: 16,
+          fontWeight: '600',
+        },
+        linkButton: {
+          marginTop: 24,
+          alignItems: 'center',
+        },
+        linkText: {
+          color: colors.textSecondary,
+          fontSize: 14,
+        },
+        linkTextBold: {
+          color: colors.primary,
+          fontWeight: '600',
+        },
+      }),
+    [colors],
+  );
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
     >
       <View style={styles.content}>
-        <Text style={[styles.logo, { color: colors.text }]}>HeirLink</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Войдите в свой аккаунт</Text>
+        <Text style={styles.logo}>HeirLink</Text>
+        <Text style={styles.subtitle}>Войдите в свой аккаунт</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -69,7 +139,7 @@ export const LoginScreen: React.FC = () => {
           <TextInput
             style={styles.input}
             placeholder="Пароль"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -101,68 +171,3 @@ export const LoginScreen: React.FC = () => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  logo: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 48,
-  },
-  form: {
-    width: '100%',
-  },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  button: {
-    height: 50,
-    backgroundColor: '#000',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  linkButton: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  linkTextBold: {
-    color: '#000',
-    fontWeight: '600',
-  },
-});

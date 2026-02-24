@@ -61,6 +61,10 @@ export const FollowListScreen: React.FC = () => {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={10}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.row, { borderBottomColor: colors.border }]}

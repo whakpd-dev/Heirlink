@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
@@ -50,6 +50,177 @@ export const ExploreScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        searchSection: {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+        searchBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: radius.sm,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          gap: spacing.sm,
+        },
+        searchInput: {
+          flex: 1,
+          ...typography.body,
+          fontSize: 14,
+          padding: 0,
+        },
+        tabsRow: {
+          flexDirection: 'row',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          backgroundColor: colors.surface,
+          gap: spacing.sm,
+        },
+        scroll: {
+          flex: 1,
+        },
+        scrollContent: {
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.md,
+        },
+        loading: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: 48,
+        },
+        empty: {
+          paddingVertical: spacing.xxl,
+          alignItems: 'center',
+        },
+        emptyText: {
+          ...typography.body,
+          color: colors.textSecondary,
+        },
+        suggestionsBlock: {
+          paddingHorizontal: spacing.lg,
+        },
+        suggestionsTitle: {
+          ...typography.bodyBold,
+          color: colors.text,
+          marginBottom: spacing.md,
+        },
+        suggestionsLoader: {
+          marginVertical: spacing.lg,
+        },
+        userRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        userAvatar: {
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: spacing.md,
+          overflow: 'hidden',
+        },
+        userAvatarImg: {
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+        },
+        userInfo: {
+          flex: 1,
+        },
+        userName: {
+          ...typography.bodyBold,
+          color: colors.text,
+        },
+        userMeta: {
+          ...typography.captionMuted,
+          color: colors.textTertiary,
+          marginTop: 2,
+        },
+        followBtn: {
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.sm,
+          backgroundColor: colors.primary,
+        },
+        followBtnActive: {
+          backgroundColor: colors.background,
+        },
+        followBtnText: {
+          ...typography.caption,
+          fontWeight: '600',
+          color: colors.surface,
+        },
+        followBtnTextActive: {
+          color: colors.textSecondary,
+        },
+        chip: {
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.full,
+          backgroundColor: colors.background,
+          marginRight: spacing.sm,
+        },
+        chipActive: {
+          backgroundColor: colors.text,
+        },
+        chipText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        chipTextActive: {
+          color: colors.surface,
+          fontWeight: '600',
+        },
+        grid: {
+          padding: GRID_GAP / 2,
+        },
+        gridRow: {
+          gap: GRID_GAP,
+          marginBottom: GRID_GAP,
+        },
+        gridItem: {
+          backgroundColor: colors.surface,
+          overflow: 'hidden',
+        },
+        gridImage: {
+          width: '100%',
+          height: '100%',
+        },
+        gridPlaceholder: {
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        gridOverlay: {
+          position: 'absolute',
+          bottom: spacing.xs,
+          right: spacing.xs,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+        },
+        gridLikes: {
+          ...typography.label,
+          color: colors.surface,
+        },
+      }),
+    [colors],
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'users' | 'posts'>('users');
@@ -144,7 +315,7 @@ export const ExploreScreen: React.FC = () => {
   const loadingSearch = searchQueryData.isFetching;
   const loadingSuggestions = suggestionsQuery.isLoading;
 
-  const renderUserRow = (item: UserHit) => (
+  const renderUserRow = useCallback((item: UserHit) => (
     <TouchableOpacity
       key={item.id}
       style={styles.userRow}
@@ -175,9 +346,11 @@ export const ExploreScreen: React.FC = () => {
         </Text>
       </TouchableOpacity>
     </TouchableOpacity>
-  );
+  ), [navigation, colors, handleFollow]);
 
-  const renderPostItem = ({ item }: { item: PostHit }) => {
+  const renderUserItem = useCallback(({ item }: { item: UserHit }) => renderUserRow(item), [renderUserRow]);
+
+  const renderPostItem = useCallback(({ item }: { item: PostHit }) => {
     const firstMedia = item.media?.[0];
     return (
       <TouchableOpacity
@@ -200,23 +373,52 @@ export const ExploreScreen: React.FC = () => {
         )}
       </TouchableOpacity>
     );
-  };
+  }, [navigation, colors, itemSize]);
+
+  const renderSuggestionItem = useCallback(({ item }: { item: UserHit }) => (
+    <TouchableOpacity
+      style={styles.userRow}
+      activeOpacity={0.8}
+      onPress={() => {
+        if (__DEV__) console.log('[HeirLink Explore:openProfile]', { userId: item.id, username: item.username });
+        (navigation as any).push('Profile', { userId: String(item.id) });
+      }}
+    >
+      <View style={styles.userAvatar}>
+        {item.avatarUrl ? (
+          <SmartImage uri={item.avatarUrl} style={styles.userAvatarImg} />
+        ) : (
+          <Ionicons name="person" size={24} color={colors.textTertiary} />
+        )}
+      </View>
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{item.username}</Text>
+        <Text style={styles.userMeta}>{item.followersCount} подписчиков</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.followBtn}
+        onPress={() => handleFollow(item.id)}
+      >
+        <Text style={styles.followBtnText}>Подписаться</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
+  ), [navigation, colors, handleFollow]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.searchSection, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={colors.textTertiary} />
+      <View style={[styles.searchSection, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
+          <Ionicons name="search" size={18} color={colors.textTertiary} />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Поиск людей и постов"
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Поиск"
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
         </View>
@@ -224,14 +426,22 @@ export const ExploreScreen: React.FC = () => {
 
       {hasQuery || hasDebouncedQuery ? (
         <>
-          <View style={styles.tabsRow}>
+          <View style={[styles.tabsRow, { backgroundColor: colors.background }]}>
             {TABS.map((tab) => (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.chip, activeTab === tab.key && styles.chipActive]}
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.surface },
+                  activeTab === tab.key && { backgroundColor: colors.text },
+                ]}
                 onPress={() => setActiveTab(tab.key as 'users' | 'posts')}
               >
-                <Text style={[styles.chipText, activeTab === tab.key && styles.chipTextActive]}>{tab.label}</Text>
+                <Text style={[
+                  styles.chipText,
+                  { color: colors.textSecondary },
+                  activeTab === tab.key && { color: colors.background, fontWeight: '600' },
+                ]}>{tab.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -243,7 +453,11 @@ export const ExploreScreen: React.FC = () => {
             <FlatList
               data={users}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => renderUserRow(item)}
+              renderItem={renderUserItem}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              initialNumToRender={6}
               contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
@@ -257,6 +471,10 @@ export const ExploreScreen: React.FC = () => {
               data={posts}
               renderItem={renderPostItem}
               keyExtractor={(item) => item.id}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              initialNumToRender={6}
               numColumns={COLS}
               key="grid"
               contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + 100 }]}
@@ -274,6 +492,11 @@ export const ExploreScreen: React.FC = () => {
         <FlatList
           data={suggestions}
           keyExtractor={(item) => item.id}
+          renderItem={renderSuggestionItem}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={6}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
           ListHeaderComponent={
             <View style={styles.suggestionsBlock}>
@@ -287,206 +510,8 @@ export const ExploreScreen: React.FC = () => {
               <Text style={styles.emptyText}>Пока нет рекомендаций</Text>
             )
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.userRow}
-              activeOpacity={0.8}
-              onPress={() => {
-        if (__DEV__) console.log('[HeirLink Explore:openProfile]', { userId: item.id, username: item.username });
-        (navigation as any).push('Profile', { userId: String(item.id) });
-      }}
-            >
-              <View style={styles.userAvatar}>
-                {item.avatarUrl ? (
-                  <SmartImage uri={item.avatarUrl} style={styles.userAvatarImg} />
-                ) : (
-                  <Ionicons name="person" size={24} color={colors.textTertiary} />
-                )}
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{item.username}</Text>
-                <Text style={styles.userMeta}>{item.followersCount} подписчиков</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.followBtn}
-                onPress={() => handleFollow(item.id)}
-              >
-                <Text style={styles.followBtnText}>Подписаться</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          )}
         />
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  searchSection: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themeColors.background,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    color: themeColors.text,
-    padding: 0,
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: themeColors.surface,
-    gap: spacing.sm,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 48,
-  },
-  empty: {
-    paddingVertical: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-  },
-  suggestionsBlock: {
-    paddingHorizontal: spacing.lg,
-  },
-  suggestionsTitle: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-    marginBottom: spacing.md,
-  },
-  suggestionsLoader: {
-    marginVertical: spacing.lg,
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    overflow: 'hidden',
-  },
-  userAvatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-  },
-  userMeta: {
-    ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    marginTop: 2,
-  },
-  followBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    backgroundColor: themeColors.primary,
-  },
-  followBtnActive: {
-    backgroundColor: themeColors.background,
-  },
-  followBtnText: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: themeColors.surface,
-  },
-  followBtnTextActive: {
-    color: themeColors.textSecondary,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: themeColors.background,
-    marginRight: spacing.sm,
-  },
-  chipActive: {
-    backgroundColor: themeColors.text,
-  },
-  chipText: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-  },
-  chipTextActive: {
-    color: themeColors.surface,
-    fontWeight: '600',
-  },
-  grid: {
-    padding: GRID_GAP / 2,
-  },
-  gridRow: {
-    gap: GRID_GAP,
-    marginBottom: GRID_GAP,
-  },
-  gridItem: {
-    backgroundColor: themeColors.surface,
-    overflow: 'hidden',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  gridPlaceholder: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gridOverlay: {
-    position: 'absolute',
-    bottom: spacing.xs,
-    right: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  gridLikes: {
-    ...typography.label,
-    color: themeColors.surface,
-  },
-});

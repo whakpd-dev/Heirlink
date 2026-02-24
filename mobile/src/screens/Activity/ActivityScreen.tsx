@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -138,9 +138,158 @@ export const ActivityScreen: React.FC = () => {
 
   const unreadCount = items.filter((n) => !n.read).length;
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        backButton: {
+          width: 40,
+          height: 40,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: spacing.xs,
+        },
+        title: {
+          ...typography.title,
+          color: colors.text,
+          flex: 1,
+        },
+        markAllBtn: {
+          paddingVertical: spacing.xs,
+          paddingHorizontal: spacing.sm,
+        },
+        markAllText: {
+          ...typography.caption,
+          color: colors.primary,
+          fontWeight: '600',
+        },
+        loading: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: 80,
+        },
+        tabsScroll: {
+          maxHeight: 52,
+          backgroundColor: colors.surface,
+        },
+        tabsContent: {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+        },
+        tab: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.full,
+          backgroundColor: colors.background,
+          marginRight: spacing.sm,
+          gap: spacing.xs,
+        },
+        tabActive: {
+          backgroundColor: colors.text,
+        },
+        tabLabel: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        tabLabelActive: {
+          color: colors.surface,
+          fontWeight: '600',
+        },
+        list: {
+          flex: 1,
+        },
+        listContent: {
+          paddingTop: spacing.sm,
+        },
+        empty: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: 80,
+        },
+        emptyText: {
+          ...typography.body,
+          color: colors.textTertiary,
+          marginTop: spacing.md,
+        },
+        notificationItem: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          marginBottom: StyleSheet.hairlineWidth,
+        },
+        notificationItemUnread: {
+          backgroundColor: colors.background,
+        },
+        avatar: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: spacing.md,
+        },
+        notificationIcon: {
+          position: 'absolute',
+          left: spacing.lg + 32,
+          top: spacing.md + 28,
+        },
+        notificationBody: {
+          flex: 1,
+          marginLeft: spacing.sm,
+        },
+        notificationText: {
+          ...typography.body,
+          color: colors.text,
+        },
+        notificationUser: {
+          fontWeight: '600',
+        },
+        notificationTime: {
+          ...typography.captionMuted,
+          color: colors.textTertiary,
+          marginTop: 2,
+        },
+        preview: {
+          width: 44,
+          height: 44,
+          borderRadius: radius.sm,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+      }),
+    [colors],
+  );
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Text style={styles.title}>Активность</Text>
         {unreadCount > 0 && (
           <TouchableOpacity
@@ -190,6 +339,10 @@ export const ActivityScreen: React.FC = () => {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={10}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
           refreshControl={
             <RefreshControl
@@ -210,13 +363,12 @@ export const ActivityScreen: React.FC = () => {
               activeOpacity={0.8}
               onPress={() => {
                 if (item.postId != null) {
-                  (navigation as any).navigate('PostDetail', {
+                  (navigation as any).push('PostDetail', {
                     postId: String(item.postId),
                   });
                 } else if (item.actor?.id) {
-                  (navigation.getParent() as any)?.navigate('ProfileTab', {
-                    screen: 'Profile',
-                    params: { userId: item.actor.id },
+                  (navigation as any).push('Profile', {
+                    userId: item.actor.id,
                   });
                 }
               }}
@@ -245,137 +397,3 @@ export const ActivityScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  title: {
-    ...typography.title,
-    color: themeColors.text,
-  },
-  markAllBtn: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  markAllText: {
-    ...typography.caption,
-    color: themeColors.primary,
-    fontWeight: '600',
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-  },
-  tabsScroll: {
-    maxHeight: 52,
-    backgroundColor: themeColors.surface,
-  },
-  tabsContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: themeColors.background,
-    marginRight: spacing.sm,
-    gap: spacing.xs,
-  },
-  tabActive: {
-    backgroundColor: themeColors.text,
-  },
-  tabLabel: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-  },
-  tabLabelActive: {
-    color: themeColors.surface,
-    fontWeight: '600',
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingTop: spacing.sm,
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-  },
-  emptyText: {
-    ...typography.body,
-    color: themeColors.textTertiary,
-    marginTop: spacing.md,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    marginBottom: StyleSheet.hairlineWidth,
-  },
-  notificationItemUnread: {
-    backgroundColor: themeColors.background,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  notificationIcon: {
-    position: 'absolute',
-    left: spacing.lg + 32,
-    top: spacing.md + 28,
-  },
-  notificationBody: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  notificationText: {
-    ...typography.body,
-    color: themeColors.text,
-  },
-  notificationUser: {
-    fontWeight: '600',
-  },
-  notificationTime: {
-    ...typography.captionMuted,
-    color: themeColors.textTertiary,
-    marginTop: 2,
-  },
-  preview: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
-    backgroundColor: themeColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

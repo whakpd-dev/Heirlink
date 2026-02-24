@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.domainname.heirlinkdev",
+      "bundleIdentifier": "com.heirlink.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "HeirLink нужен доступ к камере для создания фото и видео.",
@@ -55,7 +55,9 @@
       [
         "expo-build-properties",
         {
-          "ios": { "newArchEnabled": false }
+          "ios": {
+            "newArchEnabled": false
+          }
         }
       ],
       [
@@ -76,7 +78,8 @@
           "photosPermission": "HeirLink нужен доступ к фото для просмотра медиатеки и создания постов.",
           "savePhotosPermission": "HeirLink сохраняет фото в галерею."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

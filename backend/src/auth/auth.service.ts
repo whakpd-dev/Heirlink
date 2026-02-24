@@ -1,10 +1,15 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'crypto';
+
+const RESET_CODE_TTL = 15 * 60; // 15 minutes
+const REFRESH_TOKEN_BLACKLIST_TTL = 30 * 24 * 60 * 60; // 30 days
 
 @Injectable()
 export class AuthService {
@@ -12,6 +17,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private cacheService: CacheService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -89,9 +95,14 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(oldRefreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      const isBlacklisted = await this.cacheService.get<boolean>(`bl:rt:${oldRefreshToken}`);
+      if (isBlacklisted) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+
+      const payload = this.jwtService.verify(oldRefreshToken, {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
       });
 
@@ -102,6 +113,8 @@ export class AuthService {
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
+
+      await this.cacheService.set(`bl:rt:${oldRefreshToken}`, true, REFRESH_TOKEN_BLACKLIST_TTL);
 
       const tokens = await this.generateTokens(user.id);
 
@@ -116,8 +129,13 @@ export class AuthService {
         },
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  async blacklistRefreshToken(token: string) {
+    await this.cacheService.set(`bl:rt:${token}`, true, REFRESH_TOKEN_BLACKLIST_TTL);
   }
 
   private async generateTokens(userId: string) {
@@ -163,14 +181,16 @@ export class AuthService {
     };
   }
 
-  private resetCodes = new Map<string, { code: string; expiresAt: number; userId: string }>();
-
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return { message: 'If the email exists, a reset code has been sent' };
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    this.resetCodes.set(email, { code, expiresAt: Date.now() + 15 * 60 * 1000, userId: user.id });
+    const code = randomInt(100000, 999999).toString();
+    await this.cacheService.set(
+      `reset:${email}`,
+      { code, userId: user.id },
+      RESET_CODE_TTL,
+    );
 
     // TODO: Send email with code via email service
     if (process.env.NODE_ENV !== 'production') {
@@ -181,8 +201,8 @@ export class AuthService {
   }
 
   async resetPassword(email: string, code: string, newPassword: string) {
-    const entry = this.resetCodes.get(email);
-    if (!entry || entry.code !== code || Date.now() > entry.expiresAt) {
+    const entry = await this.cacheService.get<{ code: string; userId: string }>(`reset:${email}`);
+    if (!entry || entry.code !== code) {
       throw new UnauthorizedException('Invalid or expired reset code');
     }
 
@@ -192,7 +212,7 @@ export class AuthService {
       data: { passwordHash },
     });
 
-    this.resetCodes.delete(email);
+    await this.cacheService.del(`reset:${email}`);
     return { message: 'Password reset successfully' };
   }
 

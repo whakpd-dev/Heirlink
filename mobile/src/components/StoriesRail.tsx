@@ -1,11 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../theme';
+import { spacing } from '../theme';
 import { apiService } from '../services/api';
 import { RootState } from '../store/store';
 import { SmartImage } from './SmartImage';
@@ -23,9 +31,12 @@ interface FeedUser {
   stories: StoryItem[];
 }
 
-/**
- * Горизонтальный скролл историй — данные с API (лента + свои)
- */
+const AVATAR_SIZE = 62;
+const RING_SIZE = 68;
+const ITEM_WIDTH = 74;
+const GRADIENT_COLORS = ['#F58529', '#DD2A7B', '#8134AF', '#515BD4'] as const;
+const SEEN_RING_COLOR = '#DBDBDB';
+
 export const StoriesRail: React.FC = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
@@ -64,6 +75,13 @@ export const StoriesRail: React.FC = () => {
     });
   };
 
+  const openAddStory = () => {
+    (navigation.getParent() as any)?.navigate('FeedTab', {
+      screen: 'StoriesViewer',
+      params: { stories: myStories, initialIndex: 0, userName: currentUser?.username ?? 'Ваша история', isOwn: true, openPicker: true },
+    });
+  };
+
   if (loading && feed.length === 0 && myStories.length === 0) {
     return (
       <View style={[styles.container, styles.loadingWrap]}>
@@ -75,106 +93,155 @@ export const StoriesRail: React.FC = () => {
   const showRail = feed.length > 0 || myStories.length > 0 || currentUser;
   if (!showRail) return null;
 
+  const hasMyStories = myStories.length > 0;
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {currentUser && (
-        <TouchableOpacity
-          style={styles.storyItem}
-          activeOpacity={0.8}
-          onPress={() => openViewer(myStories, 'Ваша история', true)}
-        >
-          <View style={[styles.ring, styles.ringOwn, { backgroundColor: colors.surface, borderColor: colors.borderStrong }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-              {myStories.length > 0 && (myStories[0].mediaUrl?.startsWith('http') ?? false) ? (
-                <SmartImage uri={myStories[0].mediaUrl} style={styles.avatarImage} />
-              ) : (
-                <Ionicons name="add" size={28} color={colors.textSecondary} />
-              )}
-            </View>
-          </View>
-          <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>
-            Ваша
-          </Text>
-        </TouchableOpacity>
-      )}
-      {feed.map(({ user, stories }) => {
-        if (stories.length === 0) return null;
-        const firstMedia = stories[0].mediaUrl?.startsWith('http') ?? false;
-        return (
+    <View style={[styles.container, { borderBottomColor: colors.border }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* "Your Story" button */}
+        {currentUser && (
           <TouchableOpacity
-            key={user.id}
             style={styles.storyItem}
-            activeOpacity={0.8}
-            onPress={() => openViewer(stories, user.username, false)}
+            activeOpacity={0.7}
+            onPress={() => hasMyStories ? openViewer(myStories, currentUser.username ?? 'Вы', true) : openAddStory()}
           >
-            <View style={[styles.ring, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
-              <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-                {user.avatarUrl ? (
-                  <SmartImage uri={user.avatarUrl} style={styles.avatarImage} />
-                ) : firstMedia ? (
-                  <SmartImage uri={stories[0].mediaUrl} style={styles.avatarImage} />
-                ) : (
-                  <Ionicons name="person" size={24} color={colors.textTertiary} />
-                )}
+            <View style={styles.avatarContainer}>
+              {hasMyStories ? (
+                <LinearGradient
+                  colors={[...GRADIENT_COLORS]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gradientRing}
+                >
+                  <View style={[styles.innerRing, { backgroundColor: colors.background }]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
+                      {currentUser.avatarUrl ? (
+                        <SmartImage uri={currentUser.avatarUrl} style={styles.avatarImage} />
+                      ) : (
+                        <Ionicons name="person" size={28} color={colors.textTertiary} />
+                      )}
+                    </View>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={[styles.plainRing, { borderColor: colors.border }]}>
+                  <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
+                    {currentUser.avatarUrl ? (
+                      <SmartImage uri={currentUser.avatarUrl} style={styles.avatarImage} />
+                    ) : (
+                      <Ionicons name="person" size={28} color={colors.textTertiary} />
+                    )}
+                  </View>
+                </View>
+              )}
+              {/* Blue "+" badge */}
+              <View style={styles.addBadge}>
+                <View style={[styles.addBadgeInner, { borderColor: colors.background, backgroundColor: colors.primary }]}>
+                  <Ionicons name="add" size={14} color="#FFF" />
+                </View>
               </View>
             </View>
             <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>
-              {user.username}
+              Ваша история
             </Text>
           </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+        )}
+
+        {/* Other users' stories */}
+        {feed.map(({ user, stories }) => {
+          if (stories.length === 0) return null;
+          return (
+            <TouchableOpacity
+              key={user.id}
+              style={styles.storyItem}
+              activeOpacity={0.7}
+              onPress={() => openViewer(stories, user.username, false)}
+            >
+              <View style={styles.avatarContainer}>
+                <LinearGradient
+                  colors={[...GRADIENT_COLORS]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gradientRing}
+                >
+                  <View style={[styles.innerRing, { backgroundColor: colors.background }]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
+                      {user.avatarUrl ? (
+                        <SmartImage uri={user.avatarUrl} style={styles.avatarImage} />
+                      ) : (
+                        <Ionicons name="person" size={28} color={colors.textTertiary} />
+                      )}
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
+              <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
+                {user.username}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 };
 
-const AVATAR_SIZE = 64;
-const RING_WIDTH = 3;
-
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.sm,
+    borderBottomWidth: 0.5,
   },
   contentContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
   loadingWrap: {
     paddingVertical: spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   storyItem: {
     alignItems: 'center',
-    marginRight: spacing.lg,
-    width: 78,
+    width: ITEM_WIDTH,
+    marginRight: 4,
   },
-  ring: {
-    width: AVATAR_SIZE + RING_WIDTH * 2,
-    height: AVATAR_SIZE + RING_WIDTH * 2,
-    borderRadius: (AVATAR_SIZE + RING_WIDTH * 2) / 2,
-    padding: RING_WIDTH,
-    backgroundColor: themeColors.surface,
-    borderWidth: RING_WIDTH,
-    borderColor: themeColors.primary,
+  avatarContainer: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    marginBottom: 4,
+  },
+  gradientRing: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
-  ringOwn: {
-    borderColor: themeColors.borderStrong,
-    borderStyle: 'dashed',
+  plainRing: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    borderWidth: 1.5,
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatar: {
+  innerRing: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: themeColors.background,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: AVATAR_SIZE - 4,
+    height: AVATAR_SIZE - 4,
+    borderRadius: (AVATAR_SIZE - 4) / 2,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -183,9 +250,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  addBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+  },
+  addBadgeInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0095F6',
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   label: {
-    ...typography.label,
-    color: themeColors.textSecondary,
+    fontSize: 11,
+    fontWeight: '400',
     textAlign: 'center',
+    maxWidth: ITEM_WIDTH,
   },
 });

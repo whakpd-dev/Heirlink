@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useTheme } from '../../context/ThemeContext';
-import { colors as themeColors, spacing, radius, typography } from '../../theme';
+import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { SmartImage } from '../../components/SmartImage';
@@ -46,6 +46,139 @@ export const SmartAlbumScreen: React.FC = () => {
   const netInfo = useNetInfo();
   const cellSize = (width - spacing.lg * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
   const isMounted = useRef(true);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        backButton: {
+          width: 40,
+          height: 40,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        title: {
+          ...typography.title,
+          color: colors.text,
+        },
+        scroll: {
+          flex: 1,
+        },
+        scrollContent: {
+          padding: spacing.lg,
+        },
+        subtitle: {
+          ...typography.body,
+          color: colors.textSecondary,
+          marginBottom: spacing.lg,
+        },
+        uploadCard: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          padding: spacing.lg,
+          marginBottom: spacing.xl,
+          gap: spacing.md,
+        },
+        uploadIconWrap: {
+          width: 56,
+          height: 56,
+          borderRadius: radius.md,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        uploadBody: {
+          flex: 1,
+        },
+        uploadTitle: {
+          ...typography.bodyBold,
+          color: colors.text,
+          marginBottom: 2,
+        },
+        uploadSubtitle: {
+          ...typography.caption,
+          color: colors.textSecondary,
+        },
+        uploadingWrap: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.md,
+        },
+        uploadingText: {
+          ...typography.body,
+          color: colors.textSecondary,
+        },
+        sectionTitle: {
+          ...typography.bodyBold,
+          color: colors.text,
+          marginBottom: spacing.md,
+        },
+        loadingWrap: {
+          paddingVertical: spacing.xl,
+          alignItems: 'center',
+        },
+        empty: {
+          paddingVertical: spacing.xl,
+          alignItems: 'center',
+        },
+        emptyText: {
+          ...typography.body,
+          color: colors.textTertiary,
+          marginTop: spacing.sm,
+        },
+        grid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: GRID_GAP,
+        },
+        cellWrap: {
+          marginBottom: 0,
+        },
+        cell: {
+          borderRadius: radius.sm,
+          overflow: 'hidden',
+          backgroundColor: colors.surface,
+        },
+        cellImage: {
+          width: '100%',
+          height: '100%',
+        },
+        cellPlaceholder: {
+          width: '100%',
+          height: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        loadMoreBtn: {
+          marginTop: spacing.lg,
+          paddingVertical: spacing.md,
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+        },
+        loadMoreText: {
+          ...typography.bodyBold,
+          color: colors.primary,
+        },
+      }),
+    [colors],
+  );
 
   const [items, setItems] = useState<SmartAlbumItemRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,8 +323,8 @@ export const SmartAlbumScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -278,132 +411,3 @@ export const SmartAlbumScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: themeColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: themeColors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.title,
-    color: themeColors.text,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  subtitle: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-    marginBottom: spacing.lg,
-  },
-  uploadCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  uploadIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  uploadBody: {
-    flex: 1,
-  },
-  uploadTitle: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-    marginBottom: 2,
-  },
-  uploadSubtitle: {
-    ...typography.caption,
-    color: themeColors.textSecondary,
-  },
-  uploadingWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-  },
-  uploadingText: {
-    ...typography.body,
-    color: themeColors.textSecondary,
-  },
-  sectionTitle: {
-    ...typography.bodyBold,
-    color: themeColors.text,
-    marginBottom: spacing.md,
-  },
-  loadingWrap: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  empty: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    color: themeColors.textTertiary,
-    marginTop: spacing.sm,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: GRID_GAP,
-  },
-  cellWrap: {
-    marginBottom: 0,
-  },
-  cell: {
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    backgroundColor: themeColors.surface,
-  },
-  cellImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cellPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadMoreBtn: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    backgroundColor: themeColors.surface,
-    borderRadius: radius.md,
-  },
-  loadMoreText: {
-    ...typography.bodyBold,
-    color: themeColors.primary,
-  },
-});
