@@ -13,15 +13,8 @@ import {
   ActionSheetIOS,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { KeyboardAvoidingView as RNKeyboardAvoidingView } from 'react-native';
-
-let KeyboardAvoidingView: typeof RNKeyboardAvoidingView;
-try {
-  KeyboardAvoidingView = require('react-native-keyboard-controller').KeyboardAvoidingView;
-} catch {
-  KeyboardAvoidingView = RNKeyboardAvoidingView;
-}
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -92,7 +85,20 @@ export const ChatThreadScreen: React.FC = () => {
   const otherUserId = (paramFromRoute ?? paramFromNavState) != null ? String(paramFromRoute ?? paramFromNavState).trim() : undefined;
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false),
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
   const flatListRef = useRef<FlatList>(null);
   const typingAnimation = useRef(new Animated.Value(0)).current;
 
@@ -630,8 +636,8 @@ export const ChatThreadScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
     >
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
@@ -743,7 +749,7 @@ export const ChatThreadScreen: React.FC = () => {
       )}
 
       <View
-        style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+        style={[styles.inputRow, { paddingBottom: keyboardVisible ? spacing.sm : Math.max(insets.bottom, spacing.sm) }]}
       >
         <TouchableOpacity
           onPress={handlePickAttachment}
