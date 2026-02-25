@@ -48,8 +48,8 @@ export const SelectUsersScreen: React.FC = () => {
   });
 
   const users: UserItem[] = debouncedQuery
-    ? (searchQuery.data?.users ?? searchQuery.data ?? [])
-    : (suggestionsQuery.data ?? []);
+    ? (searchQuery.data?.items ?? [])
+    : (suggestionsQuery.data?.items ?? []);
   const isLoading = debouncedQuery ? searchQuery.isLoading : suggestionsQuery.isLoading;
 
   const toggleUser = useCallback((id: string) => {
