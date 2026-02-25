@@ -128,7 +128,6 @@ export const VideoPlayer: React.FC<Props> = ({
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         nativeControls={false}
-        allowsFullscreen={false}
       />
 
       {isLoading && (

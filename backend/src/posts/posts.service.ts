@@ -68,6 +68,11 @@ export class PostsService {
 
   async findAll(page: number = 1, limit: number = 10, userId?: string, cursor?: string) {
     const limitClamped = Math.min(Math.max(limit, 1), 100);
+
+    const cacheKey = `feed:${userId ?? 'anon'}:${cursor ?? page}:${limitClamped}`;
+    const cached = await this.cacheService.get<any>(cacheKey);
+    if (cached) return cached;
+
     const orderBy = [{ createdAt: 'desc' as const }, { id: 'desc' as const }];
     const baseQuery = {
       where: { isDeleted: false },
@@ -102,17 +107,21 @@ export class PostsService {
       },
     } as const;
 
-    const posts = await this.prisma.post.findMany({
-      ...baseQuery,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : { skip: (page - 1) * limitClamped }),
-      take: limitClamped,
-    });
-
-    const total = cursor
-      ? undefined
-      : await this.prisma.post.count({
-          where: { isDeleted: false },
-        });
+    const [posts, total] = await Promise.all([
+      this.prisma.post.findMany({
+        ...baseQuery,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : { skip: (page - 1) * limitClamped }),
+        take: limitClamped,
+      }),
+      cursor
+        ? Promise.resolve(undefined)
+        : this.cacheService.get<number>('feed:total').then(async (cachedTotal) => {
+            if (cachedTotal != null) return cachedTotal;
+            const count = await this.prisma.post.count({ where: { isDeleted: false } });
+            await this.cacheService.set('feed:total', count, 30);
+            return count;
+          }),
+    ]);
 
     const mapped = posts.map((post) => ({
       ...post,
@@ -125,7 +134,7 @@ export class PostsService {
       _count: undefined,
     }));
 
-    return {
+    const result = {
       posts: mapped,
       pagination: {
         page,
@@ -135,6 +144,9 @@ export class PostsService {
         nextCursor: mapped.length === limitClamped ? mapped[mapped.length - 1].id : undefined,
       },
     };
+
+    await this.cacheService.set(cacheKey, result, 10);
+    return result;
   }
 
   async findByUser(userId: string, page: number = 1, limit: number = 30, cursor?: string) {

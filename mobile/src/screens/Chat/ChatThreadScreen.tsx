@@ -13,17 +13,39 @@ import {
   ActionSheetIOS,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { socketService } from '../../services/socketService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
+import { VideoPlayer } from '../../components/VideoPlayer';
+import { API_URL } from '../../config';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+function resolveMediaUri(uri: string): string {
+  if (!uri || typeof uri !== 'string') return '';
+  const trimmed = uri.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.includes('localhost:3000')) {
+      return trimmed.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru');
+    }
+    return trimmed;
+  }
+  const base = (API_URL || '').replace(/\/$/, '');
+  return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`;
+}
 
 type ChatThreadParams = { userId: string };
 
@@ -380,6 +402,30 @@ export const ChatThreadScreen: React.FC = () => {
     [colors],
   );
 
+  const [viewerMedia, setViewerMedia] = useState<{ url: string; type: string } | null>(null);
+
+  const openAttachment = useCallback((url: string, type: string) => {
+    setViewerMedia({ url: resolveMediaUri(url), type });
+  }, []);
+
+  const handleSaveMedia = useCallback(async () => {
+    if (!viewerMedia) return;
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Доступ', 'Нужен доступ к галерее для сохранения');
+      return;
+    }
+    try {
+      const ext = viewerMedia.type === 'video' ? '.mp4' : '.jpg';
+      const localUri = FileSystem.documentDirectory + `heirlink_${Date.now()}${ext}`;
+      const dl = await FileSystem.downloadAsync(viewerMedia.url, localUri);
+      await MediaLibrary.saveToLibraryAsync(dl.uri);
+      Alert.alert('Сохранено', viewerMedia.type === 'video' ? 'Видео сохранено' : 'Фото сохранено');
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось сохранить');
+    }
+  }, [viewerMedia]);
+
   const renderMessage = useCallback(
     ({ item, index }: { item: MessageItem; index: number }) => {
       const nextMsg = index < invertedMessages.length - 1 ? invertedMessages[index + 1] : null;
@@ -413,7 +459,11 @@ export const ChatThreadScreen: React.FC = () => {
               ]}
             >
               {item.attachmentUrl ? (
-                <View style={{ borderRadius: radius.md, overflow: 'hidden', marginBottom: item.text ? spacing.xs : 0 }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openAttachment(item.attachmentUrl!, item.attachmentType ?? 'photo')}
+                  style={{ borderRadius: radius.md, overflow: 'hidden', marginBottom: item.text ? spacing.xs : 0 }}
+                >
                   {item.attachmentType === 'video' ? (
                     <View style={styles.attachmentVideo}>
                       <Ionicons name="play-circle" size={40} color="#fff" />
@@ -422,7 +472,7 @@ export const ChatThreadScreen: React.FC = () => {
                   ) : (
                     <SmartImage uri={item.attachmentUrl} style={styles.attachmentImage} />
                   )}
-                </View>
+                </TouchableOpacity>
               ) : null}
               {item.text ? (
                 <Text
@@ -465,7 +515,7 @@ export const ChatThreadScreen: React.FC = () => {
         </View>
       );
     },
-    [colors, invertedMessages, styles],
+    [colors, invertedMessages, styles, openAttachment],
   );
 
   // --- Error / loading states ---
@@ -628,6 +678,41 @@ export const ChatThreadScreen: React.FC = () => {
           <Ionicons name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Fullscreen media viewer modal */}
+      <Modal visible={!!viewerMedia} transparent animationType="fade" onRequestClose={() => setViewerMedia(null)}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {viewerMedia?.type === 'video' ? (
+              <VideoPlayer
+                uri={viewerMedia.url}
+                style={{ width: SCREEN_W, height: SCREEN_H * 0.7 }}
+                autoPlay
+                muted={false}
+              />
+            ) : viewerMedia ? (
+              <SmartImage
+                uri={viewerMedia.url}
+                style={{ width: SCREEN_W, height: SCREEN_H * 0.8 }}
+                contentFit="contain"
+              />
+            ) : null}
+          </View>
+
+          <View style={{
+            position: 'absolute', top: insets.top + 8, left: 12, right: 12,
+            flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <TouchableOpacity onPress={() => setViewerMedia(null)} style={{ padding: 8 }}>
+              <Ionicons name="close" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSaveMedia} style={{ padding: 8 }}>
+              <Ionicons name="download-outline" size={26} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

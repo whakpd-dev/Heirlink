@@ -233,10 +233,26 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     }
   }, [post?.id, isOwnPost, currentCaption, handleDeletePost, handleCopyLink, handleShare]);
 
+  const user = post?.user;
+  const username = user?.username ?? '?';
+  const mediaList = post?.media ?? [];
+  const timeStr = post?.createdAt ? formatTime(post.createdAt) : '';
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [unmutedPostId, setUnmutedPostId] = useState<string | null>(null);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveMediaIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
+  const isVideoActive = mediaList[activeMediaIndex]?.type === 'video';
+  const isMuted = post?.id ? unmutedPostId !== post.id : true;
+
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const lastTapRef = useRef(0);
-
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openMediaViewer = useCallback((index: number) => {
@@ -275,23 +291,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     }
     lastTapRef.current = now;
   }, [isLiked, post?.id, handleLike, heartScale, heartOpacity, openMediaViewer, activeMediaIndex]);
-
-  const user = post?.user;
-  const username = user?.username ?? '?';
-  const mediaList = post?.media ?? [];
-  const timeStr = post?.createdAt ? formatTime(post.createdAt) : '';
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
-
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0 && viewableItems[0].index != null) {
-      setActiveMediaIndex(viewableItems[0].index);
-    }
-  }).current;
-
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
-  const [unmutedPostId, setUnmutedPostId] = useState<string | null>(null);
-  const isVideoActive = mediaList[activeMediaIndex]?.type === 'video';
-  const isMuted = post?.id ? unmutedPostId !== post.id : true;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.background }]}>
