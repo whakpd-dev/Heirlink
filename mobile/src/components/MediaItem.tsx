@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleProp, ImageStyle, ViewStyle } from 'react-native';
-import { ResizeMode } from 'expo-av';
 import { SmartImage } from './SmartImage';
 import { VideoPlayer } from './VideoPlayer';
 
@@ -37,7 +36,6 @@ export const MediaItem: React.FC<Props> = ({
         style={style as StyleProp<ViewStyle>}
         autoPlay={autoPlay}
         muted={muted}
-        resizeMode={ResizeMode.COVER}
         onDurationChange={onDurationChange}
         onPlaybackFinish={onPlaybackFinish}
       />

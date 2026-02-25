@@ -1,14 +1,14 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ActivityIndicator,
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { SmartImage } from './SmartImage';
@@ -33,7 +33,6 @@ type Props = {
   autoPlay?: boolean;
   muted?: boolean;
   style?: StyleProp<ViewStyle>;
-  resizeMode?: ResizeMode;
   onDurationChange?: (durationMs: number) => void;
   onPlaybackFinish?: () => void;
 };
@@ -42,84 +41,68 @@ export const VideoPlayer: React.FC<Props> = ({
   uri,
   thumbnail,
   autoPlay = false,
-  muted: initialMuted = true,
+  muted: externalMuted = true,
   style,
-  resizeMode = ResizeMode.COVER,
   onDurationChange,
   onPlaybackFinish,
 }) => {
-  const videoRef = useRef<Video>(null);
   const isFocused = useIsFocused();
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [isMuted, setIsMuted] = useState(initialMuted);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showControls, setShowControls] = useState(!autoPlay);
-  const [hasStarted, setHasStarted] = useState(autoPlay);
-  const controlsTimeout = useRef<ReturnType<typeof setTimeout>>();
-
   const resolved = resolveUri(uri);
+  const [hasStarted, setHasStarted] = useState(autoPlay);
+  const durationReported = useRef(false);
 
-  useEffect(() => {
-    setIsMuted(initialMuted);
-    videoRef.current?.setIsMutedAsync(initialMuted).catch(() => {});
-  }, [initialMuted]);
-
-  useEffect(() => {
-    if (!isFocused && videoRef.current) {
-      videoRef.current.pauseAsync().catch(() => {});
-      setIsPlaying(false);
+  const player = useVideoPlayer(resolved, (p) => {
+    p.loop = !!autoPlay;
+    p.muted = externalMuted;
+    if (autoPlay) {
+      p.play();
     }
-  }, [isFocused]);
+  });
 
-  const onPlaybackStatusUpdate = useCallback(
-    (status: AVPlaybackStatus) => {
-      if (!status.isLoaded) return;
-      setIsPlaying(status.isPlaying);
-      setIsLoading(status.isBuffering);
-      if (status.durationMillis && onDurationChange) {
-        onDurationChange(status.durationMillis);
-      }
-      if (status.didJustFinish) {
-        onPlaybackFinish?.();
-        setShowControls(true);
-      }
-    },
-    [onDurationChange, onPlaybackFinish],
-  );
+  const { isPlaying } = useEvent(player, 'playingChange', {
+    isPlaying: player.playing,
+  });
+  const { status } = useEvent(player, 'statusChange', {
+    status: player.status,
+  });
 
-  const togglePlay = useCallback(async () => {
-    if (!videoRef.current) return;
+  const isLoading = status === 'loading';
+  const isReady = status === 'readyToPlay';
+  const isIdle = status === 'idle';
+
+  useEffect(() => {
+    player.muted = externalMuted;
+  }, [externalMuted, player]);
+
+  useEffect(() => {
+    if (!isFocused && isPlaying) {
+      player.pause();
+    }
+  }, [isFocused, isPlaying, player]);
+
+  useEffect(() => {
+    if (isReady && !durationReported.current && onDurationChange && player.duration > 0) {
+      durationReported.current = true;
+      onDurationChange(player.duration * 1000);
+    }
+  }, [isReady, onDurationChange, player]);
+
+  useEffect(() => {
+    if (status === 'idle' && hasStarted && !player.loop) {
+      onPlaybackFinish?.();
+    }
+  }, [status, hasStarted, player.loop, onPlaybackFinish]);
+
+  const togglePlay = useCallback(() => {
     if (!hasStarted) {
       setHasStarted(true);
     }
     if (isPlaying) {
-      await videoRef.current.pauseAsync();
-      setShowControls(true);
+      player.pause();
     } else {
-      await videoRef.current.playAsync();
-      setShowControls(false);
-      clearTimeout(controlsTimeout.current);
+      player.play();
     }
-  }, [isPlaying, hasStarted]);
-
-  const handleTap = useCallback(() => {
-    if (!hasStarted) {
-      togglePlay();
-      return;
-    }
-    setShowControls(true);
-    clearTimeout(controlsTimeout.current);
-    if (isPlaying) {
-      controlsTimeout.current = setTimeout(() => setShowControls(false), 2500);
-    }
-  }, [hasStarted, isPlaying, togglePlay]);
-
-  const toggleMute = useCallback(async () => {
-    if (!videoRef.current) return;
-    const next = !isMuted;
-    setIsMuted(next);
-    await videoRef.current.setIsMutedAsync(next);
-  }, [isMuted]);
+  }, [isPlaying, hasStarted, player]);
 
   if (!hasStarted && thumbnail) {
     return (
@@ -137,19 +120,15 @@ export const VideoPlayer: React.FC<Props> = ({
   return (
     <TouchableOpacity
       style={[styles.container, style]}
-      onPress={handleTap}
+      onPress={togglePlay}
       activeOpacity={1}
     >
-      <Video
-        ref={videoRef}
-        source={{ uri: resolved }}
+      <VideoView
+        player={player}
         style={StyleSheet.absoluteFill}
-        resizeMode={resizeMode}
-        shouldPlay={autoPlay && isFocused}
-        isMuted={isMuted}
-        isLooping={autoPlay}
-        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-        onLoad={() => setIsLoading(false)}
+        contentFit="cover"
+        nativeControls={false}
+        allowsFullscreen={false}
       />
 
       {isLoading && (
@@ -158,33 +137,12 @@ export const VideoPlayer: React.FC<Props> = ({
         </View>
       )}
 
-      {showControls && hasStarted && (
+      {!isPlaying && hasStarted && (
         <View style={styles.playOverlay} pointerEvents="none">
           <View style={styles.playCircle}>
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={32}
-              color="#FFF"
-              style={!isPlaying ? { marginLeft: 3 } : undefined}
-            />
+            <Ionicons name="play" size={32} color="#FFF" style={{ marginLeft: 3 }} />
           </View>
         </View>
-      )}
-
-      {showControls && hasStarted && (
-        <TouchableOpacity
-          style={styles.muteButton}
-          onPress={toggleMute}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <View style={styles.muteCircle}>
-            <Ionicons
-              name={isMuted ? 'volume-mute' : 'volume-high'}
-              size={16}
-              color="#FFF"
-            />
-          </View>
-        </TouchableOpacity>
       )}
     </TouchableOpacity>
   );
@@ -217,18 +175,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  muteButton: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-  },
-  muteCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

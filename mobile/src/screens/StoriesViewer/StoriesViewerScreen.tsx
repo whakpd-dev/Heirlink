@@ -23,7 +23,6 @@ import { apiService } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { SmartImage } from '../../components/SmartImage';
 import { VideoPlayer } from '../../components/VideoPlayer';
-import { ResizeMode } from 'expo-av';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const STORY_DURATION = 5000;
@@ -330,7 +329,6 @@ export const StoriesViewerScreen: React.FC = () => {
             style={styles.media}
             autoPlay
             muted={false}
-            resizeMode={ResizeMode.CONTAIN}
             onDurationChange={(ms) => {
               // Use the video's actual duration for progress
               timerRef.current?.stop();

@@ -16,7 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoPlayer as GrokVideoPlayer } from '../../components/VideoPlayer';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
@@ -799,12 +799,11 @@ export const GrokChatScreen: React.FC = () => {
             {!isUser && item.media && item.media.length > 0 && (
               <View style={styles.genMediaWrap}>
                 {item.mediaType === 'video' ? (
-                  <Video
-                    source={{ uri: item.media[0] }}
+                  <GrokVideoPlayer
+                    uri={item.media[0]}
                     style={styles.genVideo}
-                    resizeMode={ResizeMode.CONTAIN}
-                    useNativeControls
-                    isLooping
+                    autoPlay
+                    muted={false}
                   />
                 ) : (
                   item.media.map((url, i) => (
