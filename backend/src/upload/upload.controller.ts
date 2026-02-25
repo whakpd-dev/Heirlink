@@ -63,6 +63,7 @@ export class UploadController {
       res.status(404).end();
       return;
     }
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
     res.sendFile(fullPath);
   }
 }
