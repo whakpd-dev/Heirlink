@@ -95,7 +95,7 @@ export const AlbumMembersScreen: React.FC = () => {
   const members = membersQuery.data ?? [];
   const owner = albumQuery.data?.owner;
   const existingIds = new Set([owner?.id, ...members.map((m: any) => m.userId)]);
-  const searchResults = (searchUsersQuery.data ?? []).filter((u: any) => !existingIds.has(u.id));
+  const searchResults = (searchUsersQuery.data?.items ?? []).filter((u: any) => !existingIds.has(u.id));
 
   const styles = useMemo(
     () =>

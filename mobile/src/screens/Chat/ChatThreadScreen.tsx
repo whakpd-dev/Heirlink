@@ -14,7 +14,14 @@ import {
   Image,
   Keyboard,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView as RNKeyboardAvoidingView } from 'react-native';
+
+let KeyboardAvoidingView: typeof RNKeyboardAvoidingView;
+try {
+  KeyboardAvoidingView = require('react-native-keyboard-controller').KeyboardAvoidingView;
+} catch {
+  KeyboardAvoidingView = RNKeyboardAvoidingView;
+}
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';

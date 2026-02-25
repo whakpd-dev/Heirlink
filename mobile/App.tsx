@@ -1,8 +1,16 @@
 import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { store } from './src/store/store';
+
+let KeyboardProviderComponent: React.ComponentType<any>;
+try {
+  KeyboardProviderComponent = require('react-native-keyboard-controller').KeyboardProvider;
+} catch {
+  KeyboardProviderComponent = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(View, { style: { flex: 1 } }, children);
+}
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -55,7 +63,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+      <KeyboardProviderComponent statusBarTranslucent navigationBarTranslucent>
         <Provider store={store}>
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
@@ -68,7 +76,7 @@ export default function App() {
             </ThemeProvider>
           </QueryClientProvider>
         </Provider>
-      </KeyboardProvider>
+      </KeyboardProviderComponent>
     </SafeAreaProvider>
   );
 }
