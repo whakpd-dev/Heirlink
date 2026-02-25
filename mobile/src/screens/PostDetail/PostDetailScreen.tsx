@@ -65,6 +65,14 @@ export const PostDetailScreen: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveMediaIndex(viewableItems[0].index);
+    }
+  }).current;
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
 
   const postQuery = useQuery({
     queryKey: ['post', postId],
@@ -158,6 +166,17 @@ export const PostDetailScreen: React.FC = () => {
     }
   }, [postId, commentText, sending, commentsQuery]);
 
+  const openMediaViewer = useCallback((index: number) => {
+    if (!post?.media?.length) return;
+    (navigation as any).push('MediaViewer', {
+      items: post.media,
+      initialIndex: index,
+      isPostMedia: true,
+      postUser: post?.user,
+      postCreatedAt: post?.createdAt,
+    });
+  }, [navigation, post?.media, post?.user, post?.createdAt]);
+
   if (!postId) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
@@ -203,25 +222,6 @@ export const PostDetailScreen: React.FC = () => {
   const username = user?.username ?? '?';
   const mediaList = post.media ?? [];
   const timeStr = post.createdAt ? formatTime(post.createdAt) : '';
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
-
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0 && viewableItems[0].index != null) {
-      setActiveMediaIndex(viewableItems[0].index);
-    }
-  }).current;
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
-
-  const openMediaViewer = useCallback((index: number) => {
-    if (!mediaList.length) return;
-    (navigation as any).push('MediaViewer', {
-      items: mediaList,
-      initialIndex: index,
-      isPostMedia: true,
-      postUser: post.user,
-      postCreatedAt: post.createdAt,
-    });
-  }, [navigation, mediaList, post.user, post.createdAt]);
 
   const renderComment = (c: Comment) => (
     <View key={c.id} style={styles.commentRow}>
