@@ -36,6 +36,7 @@ type RouteParams = {
     initialIndex?: number;
     userName?: string;
     userAvatar?: string;
+    userId?: string;
     isOwn?: boolean;
     openPicker?: boolean;
   };
@@ -62,6 +63,7 @@ export const StoriesViewerScreen: React.FC = () => {
     initialIndex = 0,
     userName = '',
     userAvatar,
+    userId: storyUserId,
     isOwn = false,
     openPicker = false,
   } = route.params ?? {};
@@ -71,9 +73,13 @@ export const StoriesViewerScreen: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [paused, setPaused] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [liked, setLiked] = useState(false);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<Animated.CompositeAnimation | null>(null);
   const openedPicker = useRef(false);
+  const replyInputRef = useRef<TextInput>(null);
 
   const current = stories[index];
   const total = stories.length;
@@ -200,6 +206,38 @@ export const StoriesViewerScreen: React.FC = () => {
       setAdding(false);
     }
   }, [navigation]);
+
+  const handleSendReply = useCallback(async () => {
+    const text = replyText.trim();
+    if (!text || !storyUserId || sending) return;
+    setSending(true);
+    try {
+      await apiService.sendMessage(storyUserId, text);
+      setReplyText('');
+      replyInputRef.current?.blur();
+      Alert.alert('Отправлено', 'Сообщение отправлено');
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+    } finally {
+      setSending(false);
+    }
+  }, [replyText, storyUserId, sending]);
+
+  const handleSendHeart = useCallback(async () => {
+    if (!storyUserId || sending) return;
+    setLiked(true);
+    try {
+      await apiService.sendMessage(storyUserId, '❤️');
+    } catch {
+      // silent
+    }
+    setTimeout(() => setLiked(false), 1500);
+  }, [storyUserId, sending]);
+
+  const handleOpenChat = useCallback(() => {
+    if (!storyUserId) return;
+    (navigation as any).replace('ChatThread', { userId: storyUserId });
+  }, [storyUserId, navigation]);
 
   // Empty state — add story screen
   if (total === 0 && isOwn) {
@@ -398,18 +436,36 @@ export const StoriesViewerScreen: React.FC = () => {
         {!isOwn ? (
           <View style={styles.replyContainer}>
             <TextInput
+              ref={replyInputRef}
               style={styles.replyInput}
-              placeholder="Отправить сообщение"
+              placeholder={`Ответить ${userName}...`}
               placeholderTextColor="rgba(255,255,255,0.5)"
+              value={replyText}
+              onChangeText={setReplyText}
               onFocus={() => setPaused(true)}
-              onBlur={() => setPaused(false)}
+              onBlur={() => { setPaused(false); }}
+              returnKeyType="send"
+              onSubmitEditing={handleSendReply}
+              editable={!sending}
             />
-            <TouchableOpacity style={styles.replyBtn}>
-              <Ionicons name="heart-outline" size={26} color="#FFF" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.replyBtn}>
-              <Ionicons name="paper-plane-outline" size={24} color="#FFF" />
-            </TouchableOpacity>
+            {replyText.trim().length > 0 ? (
+              <TouchableOpacity style={styles.replyBtn} onPress={handleSendReply} disabled={sending}>
+                {sending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Ionicons name="send" size={22} color="#FFF" />
+                )}
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.replyBtn} onPress={handleSendHeart}>
+                  <Ionicons name={liked ? 'heart' : 'heart-outline'} size={26} color={liked ? '#EF4444' : '#FFF'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.replyBtn} onPress={handleOpenChat}>
+                  <Ionicons name="paper-plane-outline" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         ) : (
           <View style={styles.ownBottomRow}>

@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateNotificationSettingsDto } from './dto/update-notification-settings.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AppGateway } from '../gateway/app.gateway';
@@ -142,6 +143,35 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   getBlockedUsers(@Request() req: { user: { id: string } }) {
     return this.usersService.getBlockedUsers(req.user.id);
+  }
+
+  @Patch('me/notification-settings')
+  @UseGuards(JwtAuthGuard)
+  updateNotificationSettings(
+    @Body() dto: UpdateNotificationSettingsDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.usersService.updateNotificationSettings(req.user.id, dto);
+  }
+
+  @Post('me/push-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  registerPushToken(
+    @Body() body: { token: string; platform: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.usersService.registerPushToken(req.user.id, body.token, body.platform);
+  }
+
+  @Delete('me/push-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  removePushToken(
+    @Body() body: { token: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.usersService.removePushToken(req.user.id, body.token);
   }
 
   @Get(':id')

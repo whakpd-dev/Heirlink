@@ -5,7 +5,7 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>ru</string>
 	<key>CFBundleDisplayName</key>
 	<string>HeirLink</string>
 	<key>CFBundleExecutable</key>
@@ -27,7 +27,8 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.domainname.heirlinkdev</string>
+				<string>heirlink</string>
+				<string>com.heirlink.app</string>
 			</array>
 		</dict>
 	</array>
@@ -36,7 +37,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSMinimumSystemVersion</key>
-	<string>15.1</string>
+	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -48,12 +49,14 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>HeirLink нужен доступ к камере для создания фото и видео.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>HeirLink использует Face ID для безопасного входа в аккаунт.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HeirLink нужен доступ к микрофону для записи видео со звуком.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>HeirLink сохраняет фото в галерею.</string>
+	<string>HeirLink сохраняет медиафайлы в галерею.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>HeirLink нужен доступ к фото для выбора изображений.</string>
+	<string>HeirLink нужен доступ к фото для выбора изображений и создания постов.</string>
 	<key>RCTNewArchEnabled</key>
 	<false/>
 	<key>UILaunchStoryboardName</key>
@@ -80,10 +83,6 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>

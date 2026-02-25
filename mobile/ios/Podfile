@@ -59,5 +59,13 @@ target 'HeirLink' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+    # Fix: folly/coro/Coroutine.h not found (RN 0.81 + RCT-Folly)
+    system('chmod -R u+w Pods/RCT-Folly 2>/dev/null || true')
+    Dir.glob(File.join(__dir__, 'Pods/RCT-Folly/folly/Portability.h')).each do |path|
+      next unless File.exist?(path)
+      text = File.read(path)
+      next if text.include?('FOLLY_HAS_COROUTINES 0')
+      File.write(path, text.gsub('#define FOLLY_HAS_COROUTINES 1', '#define FOLLY_HAS_COROUTINES 0'))
+    end
   end
 end

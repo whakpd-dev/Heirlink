@@ -10,10 +10,15 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  Alert,
+  ActionSheetIOS,
+  Image,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
@@ -26,6 +31,8 @@ type ChatThreadParams = { userId: string };
 interface MessageItem {
   id: string;
   text: string;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
   createdAt: string;
   isFromMe: boolean;
   sender?: { id: string; username: string; avatarUrl: string | null };
@@ -417,13 +424,17 @@ export const ChatThreadScreen: React.FC = () => {
     }, [otherUserId, messagesQuery]),
   );
 
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
   const sendMutation = useMutation({
-    mutationFn: (text: string) =>
-      apiService.sendMessage(otherUserId as string, text),
+    mutationFn: (payload: { text: string; attachmentUrl?: string; attachmentType?: string }) =>
+      apiService.sendMessage(otherUserId as string, payload.text, payload.attachmentUrl, payload.attachmentType),
     onSuccess: (data: any) => {
       const newMsg: MessageItem = {
         id: data?.id ?? `temp-${Date.now()}`,
         text: data?.text ?? '',
+        attachmentUrl: data?.attachmentUrl,
+        attachmentType: data?.attachmentType,
         createdAt: data?.createdAt ?? new Date().toISOString(),
         isFromMe: true,
         sender: data?.sender,
@@ -450,11 +461,53 @@ export const ChatThreadScreen: React.FC = () => {
     const text = inputText.trim();
     if (!text || sendMutation.isPending || !otherUserId) return;
     setInputText('');
-    sendMutation.mutate(text);
+    sendMutation.mutate({ text });
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 200);
   }, [inputText, sendMutation, otherUserId]);
+
+  const handlePickAttachment = useCallback(async () => {
+    const options = ['Фото', 'Видео', 'Отмена'];
+    const doAction = async (choice: string) => {
+      if (choice === 'Отмена') return;
+      const mediaType = choice === 'Видео' ? (['videos'] as const) : (['images'] as const);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Доступ', 'Нужен доступ к галерее');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: mediaType as any,
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const type = asset.type === 'video' ? 'video' : 'photo';
+      setUploadingAttachment(true);
+      try {
+        const { url } = await apiService.uploadFile(asset.uri, type);
+        sendMutation.mutate({ text: '', attachmentUrl: url, attachmentType: type });
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
+      } catch {
+        Alert.alert('Ошибка', 'Не удалось загрузить файл');
+      } finally {
+        setUploadingAttachment(false);
+      }
+    };
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 2 },
+        (idx) => doAction(options[idx]),
+      );
+    } else {
+      Alert.alert('Вложение', undefined, [
+        { text: 'Фото', onPress: () => doAction('Фото') },
+        { text: 'Видео', onPress: () => doAction('Видео') },
+        { text: 'Отмена', style: 'cancel' },
+      ]);
+    }
+  }, [sendMutation]);
 
   const renderMessage = useCallback(
     ({ item, index }: { item: MessageItem; index: number }) => {
@@ -493,17 +546,33 @@ export const ChatThreadScreen: React.FC = () => {
               style={[
                 styles.bubble,
                 item.isFromMe ? styles.bubbleMine : styles.bubbleTheirs,
+                item.attachmentUrl ? { paddingHorizontal: 4, paddingTop: 4 } : undefined,
               ]}
             >
-              <Text
-                style={[
-                  styles.bubbleText,
-                  { color: item.isFromMe ? '#fff' : colors.text },
-                ]}
-              >
-                {item.text}
-              </Text>
-              <View style={styles.bubbleFooter}>
+              {item.attachmentUrl ? (
+                <View style={{ borderRadius: radius.md, overflow: 'hidden', marginBottom: item.text ? spacing.xs : 0 }}>
+                  {item.attachmentType === 'video' ? (
+                    <View style={{ width: 200, height: 150, backgroundColor: '#000', borderRadius: radius.md, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="play-circle" size={40} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 11, marginTop: 4 }}>Видео</Text>
+                    </View>
+                  ) : (
+                    <SmartImage uri={item.attachmentUrl} style={{ width: 200, height: 200, borderRadius: radius.md }} />
+                  )}
+                </View>
+              ) : null}
+              {item.text ? (
+                <Text
+                  style={[
+                    styles.bubbleText,
+                    { color: item.isFromMe ? '#fff' : colors.text },
+                    item.attachmentUrl ? { paddingHorizontal: spacing.sm - 4 } : undefined,
+                  ]}
+                >
+                  {item.text}
+                </Text>
+              ) : null}
+              <View style={[styles.bubbleFooter, item.attachmentUrl ? { paddingHorizontal: spacing.sm - 4 } : undefined]}>
                 <Text
                   style={[
                     styles.bubbleTime,
@@ -555,7 +624,7 @@ export const ChatThreadScreen: React.FC = () => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
@@ -605,6 +674,8 @@ export const ChatThreadScreen: React.FC = () => {
           maxToRenderPerBatch={10}
           windowSize={10}
           initialNumToRender={15}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -666,6 +737,18 @@ export const ChatThreadScreen: React.FC = () => {
       <View
         style={[styles.inputRow, { paddingBottom: insets.bottom + spacing.sm }]}
       >
+        <TouchableOpacity
+          onPress={handlePickAttachment}
+          style={{ padding: spacing.sm }}
+          activeOpacity={0.7}
+          disabled={uploadingAttachment}
+        >
+          {uploadingAttachment ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons name="attach" size={24} color={colors.primary} />
+          )}
+        </TouchableOpacity>
         <View style={styles.inputWrapper}>
           <TextInput
             style={styles.input}

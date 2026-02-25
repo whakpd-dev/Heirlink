@@ -70,3 +70,6 @@ models/*.safetensors
 !models/.gitkeep
 пароли.md
 .github/
+mobile/credentials.json
+mobile/heirlink.jks
+*.jks

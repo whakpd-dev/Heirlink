@@ -32,6 +32,10 @@ import { AlbumMembersScreen } from '../screens/Album/AlbumMembersScreen';
 import { AlbumSettingsScreen } from '../screens/Album/AlbumSettingsScreen';
 import { MediaViewerScreen } from '../screens/Album/MediaViewerScreen';
 import { SavedPostsScreen } from '../screens/Profile/SavedPostsScreen';
+import { ChangePasswordScreen } from '../screens/Profile/ChangePasswordScreen';
+import { BlockedUsersScreen } from '../screens/Settings/BlockedUsersScreen';
+import { NotificationSettingsScreen } from '../screens/Settings/NotificationSettingsScreen';
+import { SelectUsersScreen } from '../screens/Create/SelectUsersScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../theme';
@@ -58,6 +62,7 @@ const Tab = createBottomTabNavigator();
 const RootStack = createStackNavigator();
 const FeedStackNav = createStackNavigator();
 const ExploreStackNav = createStackNavigator();
+const CreateStackNav = createStackNavigator();
 const ChatStackNav = createStackNavigator();
 const ProfileStackNav = createStackNavigator();
 
@@ -118,6 +123,13 @@ const ChatStack = () => (
   </ChatStackNav.Navigator>
 );
 
+const CreateStack = () => (
+  <CreateStackNav.Navigator screenOptions={stackScreenOptions}>
+    <CreateStackNav.Screen name="CreatePost" component={CreateScreen} />
+    <CreateStackNav.Screen name="SelectUsers" component={SelectUsersScreen} />
+  </CreateStackNav.Navigator>
+);
+
 const ProfileStack = () => (
   <ProfileStackNav.Navigator screenOptions={stackScreenOptions}>
     <ProfileStackNav.Screen name="MyProfile" component={ProfileScreen} />
@@ -138,6 +150,9 @@ const ProfileStack = () => (
     <ProfileStackNav.Screen name="AlbumSettings" component={AlbumSettingsScreen} />
     <ProfileStackNav.Screen name="MediaViewer" component={MediaViewerScreen} />
     <ProfileStackNav.Screen name="SavedPosts" component={SavedPostsScreen} />
+    <ProfileStackNav.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    <ProfileStackNav.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+    <ProfileStackNav.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
   </ProfileStackNav.Navigator>
 );
 
@@ -239,7 +254,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Create"
-        component={CreateScreen}
+        component={CreateStack}
         options={{
           tabBarLabel: 'Создать',
           tabBarIcon: ({ color, size }) => (

@@ -13,7 +13,7 @@ export class PostsService {
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto) {
-    const { caption, location, media } = createPostDto;
+    const { caption, location, media, mentionedUserIds } = createPostDto;
 
     const post = await this.prisma.post.create({
       data: {
@@ -28,6 +28,16 @@ export class PostsService {
             order: index,
           })),
         },
+        ...(mentionedUserIds?.length
+          ? {
+              mentions: {
+                create: mentionedUserIds.map((uid, i) => ({
+                  userId: uid,
+                  order: i,
+                })),
+              },
+            }
+          : {}),
       },
       include: {
         user: {
@@ -38,6 +48,12 @@ export class PostsService {
           },
         },
         media: true,
+        mentions: {
+          include: {
+            user: { select: { id: true, username: true, avatarUrl: true } },
+          },
+          orderBy: { order: 'asc' },
+        },
         _count: {
           select: {
             likes: true,
@@ -68,6 +84,12 @@ export class PostsService {
           orderBy: {
             order: 'asc',
           },
+        },
+        mentions: {
+          include: {
+            user: { select: { id: true, username: true, avatarUrl: true } },
+          },
+          orderBy: { order: 'asc' as const },
         },
         _count: {
           select: {
@@ -140,6 +162,12 @@ export class PostsService {
             order: 'asc',
           },
         },
+        mentions: {
+          include: {
+            user: { select: { id: true, username: true, avatarUrl: true } },
+          },
+          orderBy: { order: 'asc' },
+        },
         _count: {
           select: {
             likes: true,
@@ -195,6 +223,12 @@ export class PostsService {
           orderBy: {
             order: 'asc',
           },
+        },
+        mentions: {
+          include: {
+            user: { select: { id: true, username: true, avatarUrl: true } },
+          },
+          orderBy: { order: 'asc' },
         },
         _count: {
           select: {

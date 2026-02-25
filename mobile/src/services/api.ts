@@ -1,6 +1,12 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config';
 import { tokenStorage } from './tokenStorage';
+
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    __isRetry?: boolean;
+  }
+}
 
 type UnauthorizedCallback = () => void;
 type ErrorCallback = (message: string) => void;
@@ -13,6 +19,7 @@ class ApiService {
   private lastErrorMessage = '';
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private isRefreshing = false;
+  private refreshPromise: Promise<string> | null = null;
 
   setOnUnauthorized(cb: UnauthorizedCallback) {
     this.onUnauthorized = cb;
@@ -59,15 +66,17 @@ class ApiService {
         const url = (error.config?.baseURL ?? '') + (error.config?.url ?? '');
         const status = error.response?.status;
         const errMsg = error.message || '';
-        const isOptional404 =
-          status === 404 &&
-          (url.includes('/auth/me') ||
-            url.includes('/posts/user/') ||
-            url.includes('/stories') ||
-            url.includes('/notifications') ||
-            url.includes('/posts/saved') ||
-            url.includes('messages'));
-        if (!isOptional404) {
+        const isSilent =
+          (status === 404 &&
+            (url.includes('/auth/me') ||
+              url.includes('/posts/user/') ||
+              url.includes('/stories') ||
+              url.includes('/notifications') ||
+              url.includes('/posts/saved') ||
+              url.includes('messages'))) ||
+          (status === 409 && url.includes('/auth/register')) ||
+          (status === 401 && url.includes('/auth/login'));
+        if (!isSilent) {
           console.warn('[HeirLink] API Error:', error.message, url, error.code);
         }
         if (!status && (error.code === 'ERR_NETWORK' || errMsg.includes('Network'))) {
@@ -75,32 +84,47 @@ class ApiService {
         } else if (status && status >= 500) {
           this.notifyError('Сервер временно недоступен. Попробуйте позже.');
         }
-        if (status === 401) {
-          // Попытка обновить токен
-          const refreshToken = await tokenStorage.getRefreshToken();
-          if (refreshToken) {
-            try {
-              const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-                refreshToken,
-              });
-              const { accessToken, refreshToken: newRefreshToken } = response.data;
-              await tokenStorage.setAccessToken(accessToken);
-              await tokenStorage.setRefreshToken(newRefreshToken);
-              
-              if (error.config) {
-                error.config.headers.Authorization = `Bearer ${accessToken}`;
-                return this.client.request(error.config);
-              }
-            } catch (refreshError) {
-              await tokenStorage.clearTokens();
-              this.onUnauthorized?.();
-              return Promise.reject(refreshError);
-            }
+        if (status === 401 && error.config && !error.config.__isRetry) {
+          try {
+            const newToken = await this.refreshAccessToken();
+            error.config.__isRetry = true;
+            error.config.headers.Authorization = `Bearer ${newToken}`;
+            return this.client.request(error.config);
+          } catch {
+            return Promise.reject(error);
           }
         }
         return Promise.reject(error);
       },
     );
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    if (this.refreshPromise) return this.refreshPromise;
+
+    this.refreshPromise = (async () => {
+      const rt = await tokenStorage.getRefreshToken();
+      if (!rt) {
+        this.onUnauthorized?.();
+        throw new Error('No refresh token');
+      }
+      try {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken: rt });
+        const { accessToken, refreshToken: newRT } = response.data;
+        await tokenStorage.setAccessToken(accessToken);
+        await tokenStorage.setRefreshToken(newRT);
+        this.scheduleProactiveRefresh(6 * 24 * 60 * 60 * 1000);
+        return accessToken;
+      } catch {
+        await tokenStorage.clearTokens();
+        this.onUnauthorized?.();
+        throw new Error('Refresh failed');
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
   }
 
   scheduleProactiveRefresh(expiresInMs: number) {
@@ -166,6 +190,21 @@ class ApiService {
 
   async logoutServer(refreshToken: string) {
     await this.client.post('/auth/logout', { refreshToken });
+  }
+
+  async forgotPassword(email: string) {
+    const response = await this.client.post('/auth/forgot-password', { email });
+    return response.data;
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const response = await this.client.post('/auth/reset-password', { email, code, newPassword });
+    return response.data;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await this.client.post('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
   }
 
   // Posts methods
@@ -242,6 +281,7 @@ class ApiService {
   async createPost(data: {
     caption?: string;
     location?: string;
+    mentionedUserIds?: string[];
     media: { url: string; type: 'photo' | 'video'; thumbnailUrl?: string }[];
   }) {
     const response = await this.client.post('/posts', data);
@@ -439,10 +479,17 @@ class ApiService {
     return response.data;
   }
 
-  async sendMessage(recipientId: string, text: string) {
+  async sendMessage(
+    recipientId: string,
+    text: string,
+    attachmentUrl?: string,
+    attachmentType?: string,
+  ) {
     const response = await this.client.post('/messages', {
       recipientId,
-      text: text.trim(),
+      text: text.trim() || undefined,
+      attachmentUrl,
+      attachmentType,
     });
     return response.data;
   }
@@ -592,6 +639,22 @@ class ApiService {
   async getBlockedUsers() {
     const response = await this.client.get('/users/me/blocked');
     return response.data;
+  }
+
+  async updateNotificationSettings(dto: { notifyLikes?: boolean; notifyComments?: boolean; notifyFollows?: boolean }) {
+    const response = await this.client.patch('/users/me/notification-settings', dto);
+    return response.data;
+  }
+
+  // ─── Push Notifications ───
+
+  async registerPushToken(token: string, platform: 'ios' | 'android') {
+    const response = await this.client.post('/users/me/push-token', { token, platform });
+    return response.data;
+  }
+
+  async removePushToken(token: string) {
+    await this.client.delete('/users/me/push-token', { data: { token } });
   }
 
   /** Get auth headers for manual fetch (SSE streaming) */

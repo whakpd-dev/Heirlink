@@ -266,7 +266,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     }
   }).current;
 
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
+  const [unmutedPostId, setUnmutedPostId] = useState<string | null>(null);
+  const isVideoActive = mediaList[activeMediaIndex]?.type === 'video';
+  const isMuted = post?.id ? unmutedPostId !== post.id : true;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.background }]}>
@@ -293,58 +296,97 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         </TouchableOpacity>
       </View>
 
-      <Pressable onPress={handleDoubleTap}>
-        {mediaList.length > 1 ? (
-          <View>
-            <FlatList
-              data={mediaList}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, i) => item.url || String(i)}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              renderItem={({ item }) => (
-                <View style={styles.media}>
-                  <MediaItem uri={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} style={styles.mediaImage} />
+      <View style={{ marginHorizontal: -spacing.md }}>
+        <Pressable onPress={handleDoubleTap}>
+          {mediaList.length > 1 ? (
+            <View style={{ width: SCREEN_WIDTH }}>
+              <FlatList
+                data={mediaList}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item, i) => item.url || String(i)}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+                renderItem={({ item }) => (
+                  <View style={styles.media}>
+                    <MediaItem
+                      uri={item.url}
+                      type={item.type}
+                      thumbnailUrl={item.thumbnailUrl}
+                      style={styles.mediaImage}
+                      muted={isMuted}
+                    />
+                  </View>
+                )}
+              />
+              {mediaList.length > 1 && (
+                <View style={styles.dotsRow}>
+                  {mediaList.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.dot,
+                        { backgroundColor: i === activeMediaIndex ? colors.primary : 'rgba(255,255,255,0.4)' },
+                      ]}
+                    />
+                  ))}
                 </View>
               )}
-            />
-            {mediaList.length > 1 && (
-              <View style={styles.dotsRow}>
-                {mediaList.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.dot,
-                      { backgroundColor: i === activeMediaIndex ? colors.primary : 'rgba(255,255,255,0.4)' },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.media}>
-            {mediaList[0]?.url ? (
-              <MediaItem uri={mediaList[0].url} type={mediaList[0].type} thumbnailUrl={mediaList[0].thumbnailUrl} style={styles.mediaImage} />
-            ) : (
-              <View style={[styles.mediaPlaceholder, { backgroundColor: colors.surface }]}>
-                <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
-              </View>
-            )}
-          </View>
-        )}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.heartOverlay,
-            { opacity: heartOpacity, transform: [{ scale: heartScale }] },
-          ]}
-        >
-          <Ionicons name="heart" size={80} color="#fff" />
-        </Animated.View>
-      </Pressable>
+              {isVideoActive && (
+                <TouchableOpacity
+                  style={[styles.soundButton, { backgroundColor: 'rgba(0,0,0,0.4)' }]}
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    setUnmutedPostId((prev) => (prev === post?.id ? null : post?.id ?? null));
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={unmutedPostId === post?.id ? 'volume-high' : 'volume-mute'} size={22} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View style={styles.media}>
+              {mediaList[0]?.url ? (
+                <MediaItem
+                  uri={mediaList[0].url}
+                  type={mediaList[0].type}
+                  thumbnailUrl={mediaList[0].thumbnailUrl}
+                  style={styles.mediaImage}
+                  muted={isMuted}
+                />
+              ) : (
+                <View style={[styles.mediaPlaceholder, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
+                </View>
+              )}
+              {mediaList[0]?.type === 'video' && (
+                <TouchableOpacity
+                  style={[styles.soundButton, { backgroundColor: 'rgba(0,0,0,0.4)' }]}
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    setUnmutedPostId((prev) => (prev === post?.id ? null : post?.id ?? null));
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={unmutedPostId === post?.id ? 'volume-high' : 'volume-mute'} size={22} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.heartOverlay,
+              { opacity: heartOpacity, transform: [{ scale: heartScale }] },
+            ]}
+          >
+            <Ionicons name="heart" size={80} color="#fff" />
+          </Animated.View>
+        </Pressable>
+      </View>
 
       <View style={styles.actions}>
         <View style={styles.actionsLeft}>
@@ -382,6 +424,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
             {'  '}{currentCaption}
           </Text>
         </View>
+      )}
+
+      {(post as any)?.mentions?.length > 0 && (
+        <Text style={[styles.mentionsText, { color: colors.textSecondary }]}>
+          С: {((post as any).mentions as any[]).map((m: any) => `@${m.user?.username}`).join(', ')}
+        </Text>
       )}
 
       <Text style={[styles.time, { color: colors.textTertiary }]}>{timeStr}</Text>
@@ -478,6 +526,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginLeft: spacing.xs,
   },
+  mentionsText: {
+    ...typography.captionMuted,
+    fontSize: 12,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
   time: {
     ...typography.captionMuted,
     fontSize: 11,
@@ -511,6 +565,16 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  soundButton: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heartOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -9,8 +9,11 @@ interface User {
   id: string;
   email: string;
   username: string;
+  displayName?: string;
   avatarUrl?: string;
   bio?: string;
+  website?: string;
+  isPrivate?: boolean;
 }
 
 interface AuthState {
@@ -47,12 +50,15 @@ export const register = createAsyncThunk(
       if (response.user) {
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
       }
+      apiService.scheduleProactiveRefresh(6 * 24 * 60 * 60 * 1000);
       return response;
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
-        err.message ||
-        'Ошибка регистрации';
+      const raw = err.response?.data?.message;
+      const msg = Array.isArray(raw)
+        ? raw.join('. ')
+        : typeof raw === 'string'
+          ? raw
+          : err.message || 'Ошибка регистрации';
       return rejectWithValue(msg);
     }
   },
@@ -60,14 +66,28 @@ export const register = createAsyncThunk(
 
 export const login = createAsyncThunk(
   'auth/login',
-  async ({ email, password }: { email: string; password: string }) => {
-    const response = await apiService.login(email, password);
-    await tokenStorage.setAccessToken(response.accessToken);
-    await tokenStorage.setRefreshToken(response.refreshToken);
-    if (response.user) {
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
+  async (
+    { email, password }: { email: string; password: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiService.login(email.trim().toLowerCase(), password);
+      await tokenStorage.setAccessToken(response.accessToken);
+      await tokenStorage.setRefreshToken(response.refreshToken);
+      if (response.user) {
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
+      }
+      apiService.scheduleProactiveRefresh(6 * 24 * 60 * 60 * 1000);
+      return response;
+    } catch (err: any) {
+      const raw = err.response?.data?.message;
+      const msg = Array.isArray(raw)
+        ? raw.join('. ')
+        : typeof raw === 'string'
+          ? raw
+          : err.message || 'Ошибка входа';
+      return rejectWithValue(msg);
     }
-    return response;
   },
 );
 
@@ -162,7 +182,7 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Login failed';
+        state.error = (action.payload as string) || action.error.message || 'Ошибка входа';
       });
 
     // Check Auth

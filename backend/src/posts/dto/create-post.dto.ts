@@ -23,6 +23,12 @@ export class CreatePostDto {
   @IsString()
   location?: string;
 
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(20)
+  mentionedUserIds?: string[];
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(10)

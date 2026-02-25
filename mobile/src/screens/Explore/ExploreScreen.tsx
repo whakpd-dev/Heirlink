@@ -303,6 +303,7 @@ export const ExploreScreen: React.FC = () => {
             }
           : prev,
       );
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
     },
   });
   const handleFollow = useCallback((userId: string) => {

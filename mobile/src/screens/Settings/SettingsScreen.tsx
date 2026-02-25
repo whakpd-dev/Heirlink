@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { AppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, radius, typography } from '../../theme';
+import { registerForPushNotifications, unregisterPushNotifications } from '../../services/notifications';
 
 const SETTINGS_GROUPS = [
   {
@@ -154,6 +155,18 @@ export const SettingsScreen: React.FC = () => {
                       (navigation as any).push('EditProfile');
                       return;
                     }
+                    if (item.key === 'password') {
+                      (navigation as any).push('ChangePassword');
+                      return;
+                    }
+                    if (item.key === 'email') {
+                      (navigation as any).push('NotificationSettings');
+                      return;
+                    }
+                    if (item.key === 'blocked') {
+                      (navigation as any).push('BlockedUsers');
+                      return;
+                    }
                     if (item.key === 'about') {
                       navigation.navigate('About' as never);
                       return;
@@ -181,9 +194,20 @@ export const SettingsScreen: React.FC = () => {
                             ? pushEnabled
                             : isDark
                       }
-                      onValueChange={(v) => {
+                      onValueChange={async (v) => {
                         if (item.key === 'privacy') setPrivateAccount(v);
-                        if (item.key === 'push') setPushEnabled(v);
+                        if (item.key === 'push') {
+                          setPushEnabled(v);
+                          if (v) {
+                            const token = await registerForPushNotifications();
+                            if (!token) {
+                              setPushEnabled(false);
+                              Alert.alert('Уведомления', 'Не удалось включить push-уведомления. Проверьте разрешения в настройках.');
+                            }
+                          } else {
+                            await unregisterPushNotifications();
+                          }
+                        }
                         if (item.key === 'dark') setTheme(v ? 'dark' : 'light');
                       }}
                       trackColor={{ false: colors.border, true: colors.primaryLight }}

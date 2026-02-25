@@ -21,12 +21,17 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, username, password } = registerDto;
+    const { email, password } = registerDto;
+    const username = registerDto.username.trim().toLowerCase();
+    const emailLower = email.trim().toLowerCase();
 
-    // Проверка существования пользователя
+    // Проверка существования пользователя (email и username — без учёта регистра)
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }],
+        OR: [
+          { email: { equals: emailLower, mode: 'insensitive' } },
+          { username: { equals: username, mode: 'insensitive' } },
+        ],
       },
     });
 
@@ -37,10 +42,10 @@ export class AuthService {
     // Хеширование пароля
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Создание пользователя
+    // Создание пользователя (сохраняем в нижнем регистре для единообразия)
     const user = await this.prisma.user.create({
       data: {
-        email,
+        email: emailLower,
         username,
         passwordHash,
       },
@@ -55,18 +60,22 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         bio: user.bio,
+        website: user.website,
+        isPrivate: user.isPrivate,
       },
     };
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { password } = loginDto;
+    const emailLower = loginDto.email.trim().toLowerCase();
 
-    // Поиск пользователя
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    // Поиск пользователя (по email без учёта регистра, если в БД хранится в разном регистре)
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: emailLower, mode: 'insensitive' } },
     });
 
     if (!user) {
@@ -89,8 +98,11 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         bio: user.bio,
+        website: user.website,
+        isPrivate: user.isPrivate,
       },
     };
   }
@@ -124,8 +136,11 @@ export class AuthService {
           id: user.id,
           email: user.email,
           username: user.username,
+          displayName: user.displayName,
           avatarUrl: user.avatarUrl,
           bio: user.bio,
+          website: user.website,
+          isPrivate: user.isPrivate,
         },
       };
     } catch (error) {
@@ -162,8 +177,11 @@ export class AuthService {
         id: true,
         email: true,
         username: true,
+        displayName: true,
         avatarUrl: true,
         bio: true,
+        website: true,
+        isPrivate: true,
         createdAt: true,
       },
     });
@@ -172,13 +190,7 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.validateUser(userId);
     if (!user) throw new UnauthorizedException('User not found');
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-      bio: user.bio,
-    };
+    return user;
   }
 
   async forgotPassword(email: string) {

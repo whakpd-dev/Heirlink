@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   ActionSheetIOS,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -27,14 +28,16 @@ import { RootState } from '../../store/store';
 import { API_URL } from '../../config';
 
 function resolveMediaUrl(uri: string): string {
-  if (!uri) return '';
-  if (uri.startsWith('http')) {
-    return uri.includes('localhost:3000')
-      ? uri.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru')
-      : uri;
+  const trimmed = typeof uri === 'string' ? uri.trim() : '';
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.includes('localhost:3000')
+      ? trimmed.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru')
+      : trimmed;
   }
   const base = (API_URL || '').replace(/\/$/, '');
-  return uri.startsWith('/') ? `${base}${uri}` : `${base}/${uri}`;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${base}${path}`;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -197,15 +200,28 @@ export const AlbumDetailScreen: React.FC = () => {
           (async () => {
             try {
               const { status } = await MediaLibrary.requestPermissionsAsync();
-              if (status !== 'granted') { Alert.alert('Доступ', 'Нужен доступ к галерее'); return; }
+              if (status !== 'granted') {
+                Alert.alert(
+                  'Доступ к галерее',
+                  'Нужен доступ к галерее для сохранения. Разрешите доступ в настройках.',
+                  [
+                    { text: 'Отмена', style: 'cancel' },
+                    { text: 'Настройки', onPress: () => Linking.openSettings() },
+                  ],
+                );
+                return;
+              }
               const url = resolveMediaUrl(item.media?.url ?? '');
-              if (!url) return;
+              if (!url) { Alert.alert('Ошибка', 'Неверный адрес файла'); return; }
               const ext = item.media?.type === 'video' ? '.mp4' : '.jpg';
               const localUri = FileSystem.documentDirectory + `heirlink_${Date.now()}${ext}`;
               const dl = await FileSystem.downloadAsync(url, localUri);
               await MediaLibrary.saveToLibraryAsync(dl.uri);
               Alert.alert('Сохранено', 'Файл сохранён в галерею');
-            } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : 'Не удалось сохранить файл';
+              Alert.alert('Ошибка', msg);
+            }
           })();
         }
         if (text === 'Удалить') {

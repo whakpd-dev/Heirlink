@@ -115,6 +115,8 @@ export class MessagesService {
         senderId: m.senderId,
         recipientId: m.recipientId,
         text: m.text,
+        attachmentUrl: m.attachmentUrl,
+        attachmentType: m.attachmentType,
         createdAt: m.createdAt,
         sender: m.sender,
         isFromMe: m.senderId === userId,
@@ -131,9 +133,19 @@ export class MessagesService {
   /**
    * Отправить сообщение
    */
-  async send(userId: string, recipientId: string, text: string) {
+  async send(
+    userId: string,
+    recipientId: string,
+    text?: string,
+    attachmentUrl?: string,
+    attachmentType?: string,
+  ) {
     if (userId === recipientId) {
       throw new BadRequestException('Cannot send message to yourself');
+    }
+
+    if (!text?.trim() && !attachmentUrl) {
+      throw new BadRequestException('Message must contain text or attachment');
     }
 
     const recipient = await this.prisma.user.findUnique({
@@ -145,7 +157,13 @@ export class MessagesService {
     }
 
     const message = await this.prisma.message.create({
-      data: { senderId: userId, recipientId, text },
+      data: {
+        senderId: userId,
+        recipientId,
+        text: text?.trim() ?? '',
+        attachmentUrl: attachmentUrl ?? null,
+        attachmentType: attachmentType ?? null,
+      },
       include: {
         sender: { select: USER_SELECT },
         recipient: { select: USER_SELECT },
@@ -157,6 +175,8 @@ export class MessagesService {
       senderId: message.senderId,
       recipientId: message.recipientId,
       text: message.text,
+      attachmentUrl: message.attachmentUrl,
+      attachmentType: message.attachmentType,
       createdAt: message.createdAt,
       sender: message.sender,
       isFromMe: true,

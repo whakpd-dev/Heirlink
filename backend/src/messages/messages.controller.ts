@@ -58,7 +58,9 @@ export class MessagesController {
     return this.messagesService.send(
       req.user.id,
       dto.recipientId,
-      dto.text.trim(),
+      dto.text,
+      dto.attachmentUrl,
+      dto.attachmentType,
     );
   }
 

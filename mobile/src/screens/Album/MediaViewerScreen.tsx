@@ -10,6 +10,8 @@ import {
   Platform,
   ActionSheetIOS,
   StatusBar,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,14 +30,16 @@ import { API_URL } from '../../config';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function resolveUri(uri: string): string {
-  if (!uri) return '';
-  if (uri.startsWith('http')) {
-    return uri.includes('localhost:3000')
-      ? uri.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru')
-      : uri;
+  const trimmed = typeof uri === 'string' ? uri.trim() : '';
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.includes('localhost:3000')
+      ? trimmed.replace(/http:\/\/localhost:3000/g, 'https://api.whakcomp.ru')
+      : trimmed;
   }
   const base = (API_URL || '').replace(/\/$/, '');
-  return uri.startsWith('/') ? `${base}${uri}` : `${base}/${uri}`;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${base}${path}`;
 }
 
 function formatDate(iso?: string): string {
@@ -58,6 +62,7 @@ export const MediaViewerScreen: React.FC = () => {
   const isAlbumOwner: boolean = route.params?.isAlbumOwner ?? false;
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [downloading, setDownloading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const currentItem = items[currentIndex];
@@ -65,22 +70,36 @@ export const MediaViewerScreen: React.FC = () => {
   const canDelete = isOwnItem || isAlbumOwner;
 
   const handleDownload = useCallback(async () => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Доступ к галерее',
+        'Нужен доступ к галерее для сохранения. Разрешите доступ в настройках.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { text: 'Настройки', onPress: () => Linking.openSettings() },
+        ],
+      );
+      return;
+    }
+    const url = resolveUri(currentItem?.media?.url ?? '');
+    if (!url) {
+      Alert.alert('Ошибка', 'Неверный адрес файла');
+      return;
+    }
+    setDownloading(true);
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Доступ', 'Нужен доступ к галерее для сохранения');
-        return;
-      }
-      const url = resolveUri(currentItem?.media?.url ?? '');
-      if (!url) return;
       const isVideo = currentItem?.media?.type === 'video';
       const ext = isVideo ? '.mp4' : '.jpg';
       const localUri = FileSystem.documentDirectory + `heirlink_${Date.now()}${ext}`;
       const download = await FileSystem.downloadAsync(url, localUri);
       await MediaLibrary.saveToLibraryAsync(download.uri);
       Alert.alert('Сохранено', isVideo ? 'Видео сохранено в галерею' : 'Фото сохранено в галерею');
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось сохранить файл');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Не удалось сохранить файл';
+      Alert.alert('Ошибка', msg);
+    } finally {
+      setDownloading(false);
     }
   }, [currentItem]);
 
@@ -211,11 +230,18 @@ export const MediaViewerScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      {downloading && (
+        <View style={styles.downloadOverlay}>
+          <ActivityIndicator size="large" color="#FFF" />
+          <Text style={styles.downloadOverlayText}>Сохранение…</Text>
+        </View>
+      )}
+
       {/* Bottom bar */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity onPress={handleDownload} style={styles.bottomBtn}>
-          <Ionicons name="download-outline" size={24} color="#FFF" />
-          <Text style={styles.bottomLabel}>Скачать</Text>
+        <TouchableOpacity onPress={handleDownload} style={styles.bottomBtn} disabled={downloading}>
+          <Ionicons name="download-outline" size={24} color={downloading ? 'rgba(255,255,255,0.4)' : '#FFF'} />
+          <Text style={[styles.bottomLabel, downloading && { color: 'rgba(255,255,255,0.4)' }]}>Скачать</Text>
         </TouchableOpacity>
         {canDelete && (
           <TouchableOpacity onPress={handleDelete} style={styles.bottomBtn}>
@@ -286,6 +312,19 @@ const styles = StyleSheet.create({
   bottomLabel: {
     color: '#FFF',
     fontSize: 11,
+    fontWeight: '500',
+  },
+  downloadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  downloadOverlayText: {
+    color: '#FFF',
+    fontSize: 14,
+    marginTop: 12,
     fontWeight: '500',
   },
   counter: {

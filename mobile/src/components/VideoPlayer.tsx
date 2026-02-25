@@ -60,6 +60,11 @@ export const VideoPlayer: React.FC<Props> = ({
   const resolved = resolveUri(uri);
 
   useEffect(() => {
+    setIsMuted(initialMuted);
+    videoRef.current?.setIsMutedAsync(initialMuted).catch(() => {});
+  }, [initialMuted]);
+
+  useEffect(() => {
     if (!isFocused && videoRef.current) {
       videoRef.current.pauseAsync().catch(() => {});
       setIsPlaying(false);

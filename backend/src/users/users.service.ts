@@ -11,8 +11,11 @@ import { CacheService } from '../cache/cache.service';
 const PUBLIC_USER_SELECT = {
   id: true,
   username: true,
+  displayName: true,
   avatarUrl: true,
   bio: true,
+  website: true,
+  isPrivate: true,
   createdAt: true,
 } as const;
 
@@ -40,14 +43,35 @@ export class UsersService {
         id: true,
         email: true,
         username: true,
+        displayName: true,
         avatarUrl: true,
         bio: true,
+        website: true,
+        isPrivate: true,
+        notifyLikes: true,
+        notifyComments: true,
+        notifyFollows: true,
       },
     });
     if (!user) {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  async updateNotificationSettings(
+    userId: string,
+    dto: { notifyLikes?: boolean; notifyComments?: boolean; notifyFollows?: boolean },
+  ) {
+    const data: Record<string, boolean> = {};
+    if (dto.notifyLikes !== undefined) data.notifyLikes = dto.notifyLikes;
+    if (dto.notifyComments !== undefined) data.notifyComments = dto.notifyComments;
+    if (dto.notifyFollows !== undefined) data.notifyFollows = dto.notifyFollows;
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { notifyLikes: true, notifyComments: true, notifyFollows: true },
+    });
   }
 
   /**
@@ -107,13 +131,27 @@ export class UsersService {
     return profile;
   }
 
-  /**
-   * Обновление своего профиля (avatarUrl, bio).
-   */
   async updateMe(userId: string, dto: UpdateProfileDto) {
-    const data: { avatarUrl?: string; bio?: string } = {};
-    if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl;
-    if (dto.bio !== undefined) data.bio = dto.bio;
+    const data: Record<string, any> = {};
+    if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl || null;
+    if (dto.bio !== undefined) data.bio = dto.bio || null;
+    if (dto.displayName !== undefined) data.displayName = dto.displayName || null;
+    if (dto.website !== undefined) data.website = dto.website || null;
+    if (dto.isPrivate !== undefined) data.isPrivate = dto.isPrivate;
+
+    if (dto.username !== undefined) {
+      const normalized = dto.username.trim().toLowerCase();
+      const existing = await this.prisma.user.findFirst({
+        where: {
+          username: { equals: normalized, mode: 'insensitive' },
+          NOT: { id: userId },
+        },
+      });
+      if (existing) {
+        throw new BadRequestException('Это имя пользователя уже занято');
+      }
+      data.username = normalized;
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -122,8 +160,11 @@ export class UsersService {
         id: true,
         email: true,
         username: true,
+        displayName: true,
         avatarUrl: true,
         bio: true,
+        website: true,
+        isPrivate: true,
         createdAt: true,
       },
     });
@@ -359,5 +400,23 @@ export class UsersService {
       where: { OR: [{ blockerId: userId1, blockedId: userId2 }, { blockerId: userId2, blockedId: userId1 }] },
     });
     return !!block;
+  }
+
+  async registerPushToken(userId: string, token: string, platform: string) {
+    await this.prisma.pushToken.upsert({
+      where: { userId_token: { userId, token } },
+      create: { userId, token, platform },
+      update: { platform },
+    });
+    return { registered: true };
+  }
+
+  async removePushToken(userId: string, token: string) {
+    await this.prisma.pushToken.deleteMany({ where: { userId, token } });
+    return { removed: true };
+  }
+
+  async getPushTokensForUser(userId: string) {
+    return this.prisma.pushToken.findMany({ where: { userId }, select: { token: true, platform: true } });
   }
 }

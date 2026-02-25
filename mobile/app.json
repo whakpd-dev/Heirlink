@@ -17,12 +17,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.heirlink.app",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "HeirLink нужен доступ к камере для создания фото и видео.",
-        "NSPhotoLibraryUsageDescription": "HeirLink нужен доступ к фото для выбора изображений и постов.",
-        "NSPhotoLibraryAddUsageDescription": "HeirLink сохраняет фото в галерею.",
-        "NSMicrophoneUsageDescription": "HeirLink нужен доступ к микрофону для записи видео со звуком."
+        "NSPhotoLibraryUsageDescription": "HeirLink нужен доступ к фото для выбора изображений и создания постов.",
+        "NSPhotoLibraryAddUsageDescription": "HeirLink сохраняет медиафайлы в галерею.",
+        "NSMicrophoneUsageDescription": "HeirLink нужен доступ к микрофону для записи видео со звуком.",
+        "NSFaceIDUsageDescription": "HeirLink использует Face ID для безопасного входа в аккаунт.",
+        "CFBundleDevelopmentRegion": "ru"
       }
     },
     "android": {
@@ -56,7 +62,13 @@
         "expo-build-properties",
         {
           "ios": {
-            "newArchEnabled": false
+            "newArchEnabled": false,
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "newArchEnabled": false,
+            "minSdkVersion": 24,
+            "kotlinVersion": "2.0.21"
           }
         }
       ],
@@ -69,23 +81,30 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "HeirLink нужен доступ к фото для выбора изображений."
+          "photosPermission": "HeirLink нужен доступ к фото для выбора изображений и создания постов."
         }
       ],
       [
         "expo-media-library",
         {
           "photosPermission": "HeirLink нужен доступ к фото для просмотра медиатеки и создания постов.",
-          "savePhotosPermission": "HeirLink сохраняет фото в галерею."
+          "savePhotosPermission": "HeirLink сохраняет медиафайлы в галерею."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "161f4b63-8e65-4616-a435-344f371f8996"
+        "projectId": "186895f1-25cd-4332-8537-6c87f75267e3"
       }
     },
-    "owner": "alimwhak"
+    "owner": "alim1212"
   }
 }

@@ -22,7 +22,7 @@ import { spacing, radius, typography } from '../../theme';
 import { apiService } from '../../services/api';
 import { RootState, AppDispatch } from '../../store/store';
 import { restoreUserFromStorage, checkAuth, logout } from '../../store/authSlice';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
 
 const TABS = [
@@ -490,6 +490,7 @@ export const ProfileScreen: React.FC = () => {
   }, [albumsQuery.data, isOwnProfile]);
 
   const loading = profileQuery.isLoading || postsQuery.isLoading;
+  const queryClient = useQueryClient();
 
   useFocusEffect(
     useCallback(() => {
@@ -521,12 +522,14 @@ export const ProfileScreen: React.FC = () => {
         setIsFollowing(true);
         setFollowersCount((c) => c + 1);
       }
+      queryClient.invalidateQueries({ queryKey: ['profile', profileUserId] });
+      await profileQuery.refetch();
     } catch {
       // ignore
     } finally {
       setFollowLoading(false);
     }
-  }, [profileUserId, isFollowing, followLoading]);
+  }, [profileUserId, isFollowing, followLoading, queryClient, profileQuery]);
 
   const handleEditProfile = useCallback(() => {
     navigation.navigate('EditProfile' as never);

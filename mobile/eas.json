@@ -6,20 +6,31 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "credentialsSource": "local"
+      },
+      "ios": {
+        "simulator": false
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.whakcomp.ru"
       }
     },
     "production": {
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "autoIncrement": "buildNumber"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.whakcomp.ru"

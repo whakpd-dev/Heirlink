@@ -68,10 +68,10 @@ export const StoriesRail: React.FC = () => {
     }, [load]),
   );
 
-  const openViewer = (stories: StoryItem[], userName: string, isOwn: boolean) => {
+  const openViewer = (stories: StoryItem[], userName: string, userAvatar: string | null, userId: string, isOwn: boolean) => {
     (navigation.getParent() as any)?.navigate('FeedTab', {
       screen: 'StoriesViewer',
-      params: { stories, initialIndex: 0, userName, isOwn },
+      params: { stories, initialIndex: 0, userName, userAvatar, userId, isOwn },
     });
   };
 
@@ -107,7 +107,7 @@ export const StoriesRail: React.FC = () => {
           <TouchableOpacity
             style={styles.storyItem}
             activeOpacity={0.7}
-            onPress={() => hasMyStories ? openViewer(myStories, currentUser.username ?? 'Вы', true) : openAddStory()}
+            onPress={() => hasMyStories ? openViewer(myStories, currentUser.username ?? 'Вы', currentUser.avatarUrl ?? null, currentUser.id, true) : openAddStory()}
           >
             <View style={styles.avatarContainer}>
               {hasMyStories ? (
@@ -159,7 +159,7 @@ export const StoriesRail: React.FC = () => {
               key={user.id}
               style={styles.storyItem}
               activeOpacity={0.7}
-              onPress={() => openViewer(stories, user.username, false)}
+              onPress={() => openViewer(stories, user.username, user.avatarUrl, user.id, false)}
             >
               <View style={styles.avatarContainer}>
                 <LinearGradient

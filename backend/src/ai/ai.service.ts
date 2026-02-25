@@ -231,10 +231,23 @@ export class AiService {
       });
     } catch (error: any) {
       const status = error?.response?.status;
-      const data = error?.response?.data;
-      const text = typeof data === 'string' ? data : JSON.stringify(data ?? {});
-      console.error('[AiService] Stream request failed:', { status, text: text?.slice?.(0, 300) });
-      res.write(`data: ${JSON.stringify({ error: `xAI error: ${status ?? 'unknown'} - ${(text ?? '').slice(0, 200)}` })}\n\n`);
+      let text = '';
+      try {
+        const data = error?.response?.data;
+        if (typeof data === 'string') {
+          text = data;
+        } else if (data && typeof data.read === 'function') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of data) chunks.push(Buffer.from(chunk));
+          text = Buffer.concat(chunks).toString('utf-8');
+        } else {
+          text = JSON.stringify(data ?? {});
+        }
+      } catch {
+        text = error?.message ?? 'unknown error';
+      }
+      console.error('[AiService] Stream request failed:', { status, text: text.slice(0, 300) });
+      res.write(`data: ${JSON.stringify({ error: `xAI error: ${status ?? 'unknown'} - ${text.slice(0, 200)}` })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
     }

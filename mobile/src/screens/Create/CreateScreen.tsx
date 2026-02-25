@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -203,6 +205,43 @@ export const CreateScreen: React.FC = () => {
           ...typography.body,
           color: colors.text,
         },
+        locationModalOverlay: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.4)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: spacing.xl,
+        },
+        locationModalContent: {
+          width: '100%',
+          borderRadius: radius.lg,
+          padding: spacing.lg,
+        },
+        locationModalTitle: {
+          ...typography.bodyBold,
+          fontSize: 17,
+          marginBottom: spacing.md,
+          textAlign: 'center',
+        },
+        locationModalInput: {
+          ...typography.body,
+          borderWidth: 1,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+        },
+        locationModalButtons: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          gap: spacing.md,
+        },
+        locationModalBtn: {
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+        },
+        locationModalBtnText: {
+          ...typography.bodyBold,
+        },
       }),
     [colors],
   );
@@ -210,6 +249,10 @@ export const CreateScreen: React.FC = () => {
   const [selectedAssets, setSelectedAssets] = useState<{ uri: string; type: 'photo' | 'video' }[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [locationText, setLocationText] = useState('');
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationDraft, setLocationDraft] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const selectedUris = selectedAssets.map((a) => a.uri);
 
   const compressImage = useCallback(async (uri: string) => {
@@ -306,14 +349,18 @@ export const CreateScreen: React.FC = () => {
       }
       await apiService.createPost({
         caption: caption.trim() || undefined,
+        location: locationText.trim() || undefined,
+        mentionedUserIds: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
         media,
-      });
+      } as any);
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['savedPosts'] });
       setSelectedAssets([]);
       setCaption('');
+      setLocationText('');
+      setMentionedUserIds([]);
       navigation.goBack();
       showToast('Пост опубликован');
     } catch (err: unknown) {
@@ -448,20 +495,89 @@ export const CreateScreen: React.FC = () => {
           <Text style={styles.captionCount}>{caption.length}/2200</Text>
         </View>
 
-        {/* Доп. опции (заглушки) */}
+        {/* Доп. опции */}
         <View style={styles.options}>
-          <TouchableOpacity style={styles.optionRow} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.optionRow}
+            activeOpacity={0.8}
+            onPress={() => {
+              setLocationDraft(locationText);
+              setLocationModalVisible(true);
+            }}
+          >
             <Ionicons name="location-outline" size={22} color={colors.text} />
-            <Text style={styles.optionText}>Добавить место</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            <Text style={styles.optionText} numberOfLines={1}>
+              {locationText ? locationText : 'Добавить место'}
+            </Text>
+            {locationText ? (
+              <TouchableOpacity onPress={() => setLocationText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.optionRow} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.optionRow}
+            activeOpacity={0.8}
+            onPress={() => {
+              (navigation as any).push('SelectUsers', {
+                selectedIds: mentionedUserIds,
+                onSelect: (ids: string[]) => setMentionedUserIds(ids),
+              });
+            }}
+          >
             <Ionicons name="people-outline" size={22} color={colors.text} />
-            <Text style={styles.optionText}>Отметить людей</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            <Text style={styles.optionText} numberOfLines={1}>
+              {mentionedUserIds.length > 0 ? `Отмечено: ${mentionedUserIds.length}` : 'Отметить людей'}
+            </Text>
+            {mentionedUserIds.length > 0 ? (
+              <TouchableOpacity onPress={() => setMentionedUserIds([])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Location modal */}
+      <Modal visible={locationModalVisible} transparent animationType="fade" onRequestClose={() => setLocationModalVisible(false)}>
+        <Pressable style={styles.locationModalOverlay} onPress={() => setLocationModalVisible(false)}>
+          <Pressable style={[styles.locationModalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <Text style={[styles.locationModalTitle, { color: colors.text }]}>Добавить место</Text>
+            <TextInput
+              style={[styles.locationModalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={locationDraft}
+              onChangeText={setLocationDraft}
+              placeholder="Название места..."
+              placeholderTextColor={colors.textTertiary}
+              autoFocus
+              maxLength={200}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                setLocationText(locationDraft.trim());
+                setLocationModalVisible(false);
+              }}
+            />
+            <View style={styles.locationModalButtons}>
+              <TouchableOpacity onPress={() => setLocationModalVisible(false)} style={styles.locationModalBtn}>
+                <Text style={[styles.locationModalBtnText, { color: colors.textSecondary }]}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setLocationText(locationDraft.trim());
+                  setLocationModalVisible(false);
+                }}
+                style={styles.locationModalBtn}
+              >
+                <Text style={[styles.locationModalBtnText, { color: colors.primary }]}>Готово</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
