@@ -38,7 +38,7 @@ function isLoadableUri(uri: string): boolean {
   return lower.startsWith('http://') || lower.startsWith('https://');
 }
 
-export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover', onLoad }) => {
+export const SmartImage = React.memo<Props>(({ uri, style, contentFit = 'cover', onLoad }) => {
   const { colors } = useTheme();
   const resolved = resolveUri(uri);
   if (!resolved || !isLoadableUri(resolved)) {
@@ -57,6 +57,7 @@ export const SmartImage: React.FC<Props> = ({ uri, style, contentFit = 'cover', 
       transition={200}
       placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
       onLoad={onLoad}
+      recyclingKey={resolved}
     />
   );
-};
+});

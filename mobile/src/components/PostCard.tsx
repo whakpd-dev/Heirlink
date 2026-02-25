@@ -52,7 +52,7 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString();
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveChange, onDeleted }) => {
+const PostCardInner: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveChange, onDeleted }) => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
@@ -512,6 +512,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
     </View>
   );
 };
+
+export const PostCard = React.memo(PostCardInner, (prev, next) => {
+  return (
+    prev.post?.id === next.post?.id &&
+    prev.post?.isLiked === next.post?.isLiked &&
+    prev.post?.isSaved === next.post?.isSaved &&
+    prev.post?.likesCount === next.post?.likesCount &&
+    prev.post?.caption === next.post?.caption
+  );
+});
 
 const styles = StyleSheet.create({
   card: {
