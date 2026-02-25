@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { store } from './src/store/store';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
@@ -54,18 +55,20 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <ToastProvider>
-              <ApiErrorNotifier />
-              <ErrorBoundary>
-                <AppNavigator />
-              </ErrorBoundary>
-            </ToastProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </Provider>
+      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+        <Provider store={store}>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <ToastProvider>
+                <ApiErrorNotifier />
+                <ErrorBoundary>
+                  <AppNavigator />
+                </ErrorBoundary>
+              </ToastProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </Provider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

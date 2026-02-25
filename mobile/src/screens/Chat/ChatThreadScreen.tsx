@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Animated,
@@ -15,6 +14,7 @@ import {
   Image,
   Keyboard,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -623,7 +623,7 @@ export const ChatThreadScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -670,13 +670,17 @@ export const ChatThreadScreen: React.FC = () => {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={15}
           windowSize={10}
-          initialNumToRender={15}
+          initialNumToRender={20}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={false}
+          contentContainerStyle={[styles.listContent, { paddingBottom: spacing.sm }]}
+          onContentSizeChange={() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="chatbubble-outline" size={64} color={colors.textTertiary} />
@@ -686,9 +690,6 @@ export const ChatThreadScreen: React.FC = () => {
             </View>
           }
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => {
-            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
-          }}
         />
       )}
 
@@ -735,7 +736,7 @@ export const ChatThreadScreen: React.FC = () => {
       )}
 
       <View
-        style={[styles.inputRow, { paddingBottom: insets.bottom + spacing.sm }]}
+        style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
       >
         <TouchableOpacity
           onPress={handlePickAttachment}
