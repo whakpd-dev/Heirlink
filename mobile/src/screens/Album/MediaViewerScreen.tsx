@@ -56,10 +56,22 @@ export const MediaViewerScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const authUser = useSelector((state: RootState) => state.auth.user);
 
-  const items: any[] = route.params?.items ?? [];
+  const rawItems: any[] = route.params?.items ?? [];
   const initialIndex: number = route.params?.initialIndex ?? 0;
   const albumId: string = route.params?.albumId ?? '';
   const isAlbumOwner: boolean = route.params?.isAlbumOwner ?? false;
+  const isPostMedia: boolean = route.params?.isPostMedia ?? false;
+
+  const items = useMemo(() => {
+    if (!isPostMedia) return rawItems;
+    return rawItems.map((m: any, i: number) => ({
+      id: m.id ?? `media-${i}`,
+      media: { url: m.url, type: m.type, thumbnailUrl: m.thumbnailUrl },
+      addedBy: m.user ?? route.params?.postUser,
+      addedById: m.user?.id ?? route.params?.postUser?.id,
+      createdAt: m.createdAt ?? route.params?.postCreatedAt,
+    }));
+  }, [rawItems, isPostMedia, route.params]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [downloading, setDownloading] = useState(false);
@@ -67,7 +79,7 @@ export const MediaViewerScreen: React.FC = () => {
 
   const currentItem = items[currentIndex];
   const isOwnItem = currentItem?.addedBy?.id === authUser?.id || currentItem?.addedById === authUser?.id;
-  const canDelete = isOwnItem || isAlbumOwner;
+  const canDelete = !isPostMedia && (isOwnItem || isAlbumOwner);
 
   const handleDownload = useCallback(async () => {
     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -145,8 +157,8 @@ export const MediaViewerScreen: React.FC = () => {
 
   const handleActions = useCallback(() => {
     const options: string[] = ['Скачать в галерею'];
-    if (canDelete) options.push('Удалить');
-    if (!isOwnItem) options.push('Пожаловаться');
+    if (canDelete && !isPostMedia) options.push('Удалить');
+    if (!isOwnItem && !isPostMedia) options.push('Пожаловаться');
     options.push('Отмена');
 
     const cancelIndex = options.length - 1;
@@ -186,11 +198,11 @@ export const MediaViewerScreen: React.FC = () => {
     const isVideo = item.media?.type === 'video';
     const url = item.media?.url ?? '';
     return (
-      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: '#000', justifyContent: 'center' }}>
+      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         {isVideo ? (
-          <VideoPlayer uri={url} style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }} autoPlay={false} muted={false} />
+          <VideoPlayer uri={url} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.7 }} autoPlay muted={false} />
         ) : (
-          <SmartImage uri={url} style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }} contentFit="contain" />
+          <SmartImage uri={url} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 }} contentFit="contain" />
         )}
       </View>
     );
@@ -221,9 +233,13 @@ export const MediaViewerScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerUser} numberOfLines={1}>
-            {currentItem?.addedBy?.username ?? ''}
+            {currentItem?.addedBy?.username ?? (isPostMedia ? '' : '')}
           </Text>
-          <Text style={styles.headerDate}>{formatDate(currentItem?.createdAt)}</Text>
+          <Text style={styles.headerDate}>
+            {isPostMedia && items.length > 1
+              ? `${currentIndex + 1} / ${items.length}`
+              : formatDate(currentItem?.createdAt)}
+          </Text>
         </View>
         <TouchableOpacity onPress={handleActions} style={styles.headerBtn}>
           <Ionicons name="ellipsis-horizontal" size={24} color="#FFF" />
@@ -243,13 +259,13 @@ export const MediaViewerScreen: React.FC = () => {
           <Ionicons name="download-outline" size={24} color={downloading ? 'rgba(255,255,255,0.4)' : '#FFF'} />
           <Text style={[styles.bottomLabel, downloading && { color: 'rgba(255,255,255,0.4)' }]}>Скачать</Text>
         </TouchableOpacity>
-        {canDelete && (
+        {canDelete && !isPostMedia && (
           <TouchableOpacity onPress={handleDelete} style={styles.bottomBtn}>
             <Ionicons name="trash-outline" size={24} color="#FF3B30" />
             <Text style={[styles.bottomLabel, { color: '#FF3B30' }]}>Удалить</Text>
           </TouchableOpacity>
         )}
-        {!isOwnItem && (
+        {!isOwnItem && !isPostMedia && (
           <TouchableOpacity onPress={handleReport} style={styles.bottomBtn}>
             <Ionicons name="flag-outline" size={24} color="#FFF" />
             <Text style={styles.bottomLabel}>Жалоба</Text>

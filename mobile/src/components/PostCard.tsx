@@ -237,9 +237,26 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const lastTapRef = useRef(0);
 
-  const handleDoubleTap = useCallback(() => {
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openMediaViewer = useCallback((index: number) => {
+    if (!post?.media?.length) return;
+    (navigation as any).push('MediaViewer', {
+      items: post.media,
+      initialIndex: index,
+      isPostMedia: true,
+      postUser: post.user,
+      postCreatedAt: post.createdAt,
+    });
+  }, [navigation, post?.media, post?.user, post?.createdAt]);
+
+  const handleMediaTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
+      if (singleTapTimer.current) {
+        clearTimeout(singleTapTimer.current);
+        singleTapTimer.current = null;
+      }
       if (!isLiked && post?.id) {
         handleLike();
       }
@@ -250,9 +267,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
         Animated.delay(400),
         Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       ]).start();
+    } else {
+      singleTapTimer.current = setTimeout(() => {
+        openMediaViewer(activeMediaIndex);
+        singleTapTimer.current = null;
+      }, 300);
     }
     lastTapRef.current = now;
-  }, [isLiked, post?.id, handleLike, heartScale, heartOpacity]);
+  }, [isLiked, post?.id, handleLike, heartScale, heartOpacity, openMediaViewer, activeMediaIndex]);
 
   const user = post?.user;
   const username = user?.username ?? '?';
@@ -297,7 +319,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLikeChange, onSaveCh
       </View>
 
       <View style={{ marginHorizontal: -spacing.md }}>
-        <Pressable onPress={handleDoubleTap}>
+        <Pressable onPress={handleMediaTap}>
           {mediaList.length > 1 ? (
             <View style={{ width: SCREEN_WIDTH }}>
               <FlatList

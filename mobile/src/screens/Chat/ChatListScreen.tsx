@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography } from '../../theme';
 import { apiService } from '../../services/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
 import { socketService } from '../../services/socketService';
 
 interface ConversationItem {
   otherUser: { id: string; username: string; avatarUrl: string | null };
   lastMessage: string;
+  lastMessageAttachmentType?: string | null;
   lastAt: string;
 }
 
@@ -39,16 +40,22 @@ function formatTime(iso: string): string {
 }
 
 function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.toDateString() === now.toDateString();
+  return new Date(iso).toDateString() === new Date().toDateString();
+}
+
+function previewText(item: ConversationItem): string {
+  if (item.lastMessage) return item.lastMessage;
+  if (item.lastMessageAttachmentType === 'video') return '🎬 Видео';
+  if (item.lastMessageAttachmentType === 'photo') return '📷 Фото';
+  if (item.lastMessageAttachmentType) return '📎 Вложение';
+  return 'Нет сообщений';
 }
 
 export const ChatListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { colors } = useTheme();
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['messages', 'conversations'],
@@ -57,37 +64,60 @@ export const ChatListScreen: React.FC = () => {
       return (res?.items ?? []) as ConversationItem[];
     },
     retry: 1,
-    staleTime: 5000, // Данные считаются свежими 5 секунд
-    gcTime: 300000, // Кэш хранится 5 минут
+    staleTime: 5000,
+    gcTime: 300000,
   });
+
+  // Real-time: listen for new messages and bump conversation to top
+  useEffect(() => {
+    const unsub = socketService.on('newMessage', (msg: any) => {
+      queryClient.setQueryData<ConversationItem[]>(['messages', 'conversations'], (old) => {
+        if (!old) return old;
+        const otherUserId = msg.isFromMe ? msg.recipientId : msg.senderId;
+        const otherUsername = msg.isFromMe
+          ? msg.recipient?.username
+          : msg.sender?.username;
+        const otherAvatarUrl = msg.isFromMe
+          ? msg.recipient?.avatarUrl
+          : msg.sender?.avatarUrl;
+        const existingIdx = old.findIndex((c) => c.otherUser.id === otherUserId);
+
+        const updated: ConversationItem = existingIdx >= 0
+          ? {
+              ...old[existingIdx],
+              lastMessage: msg.text || '',
+              lastMessageAttachmentType: msg.attachmentType,
+              lastAt: msg.createdAt || new Date().toISOString(),
+            }
+          : {
+              otherUser: {
+                id: otherUserId,
+                username: otherUsername || '?',
+                avatarUrl: otherAvatarUrl ?? null,
+              },
+              lastMessage: msg.text || '',
+              lastMessageAttachmentType: msg.attachmentType,
+              lastAt: msg.createdAt || new Date().toISOString(),
+            };
+
+        const rest = existingIdx >= 0
+          ? [...old.slice(0, existingIdx), ...old.slice(existingIdx + 1)]
+          : [...old];
+        return [updated, ...rest];
+      });
+    });
+    return unsub;
+  }, [queryClient]);
 
   useFocusEffect(
     useCallback(() => {
-      // Обновляем только если данные устарели (прошло больше 5 секунд)
       if (query.dataUpdatedAt && Date.now() - query.dataUpdatedAt > 5000) {
         query.refetch();
       } else if (!query.data) {
-        // Если данных нет, загружаем
         query.refetch();
       }
     }, [query]),
   );
-
-  useEffect(() => {
-    // Подписка на события подключения/отключения для отслеживания онлайн статуса
-    // В будущем можно добавить API для получения списка онлайн пользователей
-    const checkOnline = async () => {
-      // Пока просто обновляем список при фокусе
-      if (socketService.isConnected) {
-        // Можно добавить запрос к API для получения онлайн пользователей
-      }
-    };
-    checkOnline();
-  }, []);
-
-  const onRefresh = useCallback(() => {
-    query.refetch();
-  }, [query]);
 
   const openChat = useCallback(
     (userId: string) => {
@@ -96,11 +126,58 @@ export const ChatListScreen: React.FC = () => {
     [navigation],
   );
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        header: {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
+        },
+        title: { ...typography.title, color: colors.text },
+        loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+        empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+        emptyText: { ...typography.body, marginTop: spacing.md, color: colors.textTertiary },
+        emptyHint: { ...typography.caption, marginTop: spacing.xs, color: colors.textTertiary },
+        retryButton: { marginTop: spacing.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, borderRadius: 8, backgroundColor: colors.primary },
+        retryButtonText: { ...typography.body, fontWeight: '600', color: '#fff' },
+        row: {
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: spacing.lg, paddingVertical: spacing.md + 2,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border, backgroundColor: colors.surface,
+        },
+        avatarContainer: { position: 'relative', marginRight: spacing.md },
+        avatar: {
+          width: 56, height: 56, borderRadius: 28, overflow: 'hidden',
+          justifyContent: 'center', alignItems: 'center',
+          borderWidth: 2, borderColor: 'transparent', backgroundColor: colors.background,
+        },
+        avatarImage: { width: 56, height: 56 },
+        body: { flex: 1, minWidth: 0 },
+        bodyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+        username: { ...typography.body, fontWeight: '600', flex: 1, marginRight: spacing.sm, color: colors.text },
+        preview: { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
+        time: { ...typography.captionMuted, fontSize: 12 },
+      }),
+    [colors],
+  );
+
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<ConversationItem> | null | undefined, index: number) => ({
+      length: 72,
+      offset: 72 * index,
+      index,
+    }),
+    [],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ConversationItem }) => {
-      const isOnline = onlineUsers.has(item.otherUser.id);
       const isRecent = isToday(item.lastAt);
-
       return (
         <TouchableOpacity
           style={styles.row}
@@ -115,7 +192,6 @@ export const ChatListScreen: React.FC = () => {
                 <Ionicons name="person" size={28} color={colors.textTertiary} />
               )}
             </View>
-            {isOnline && <View style={styles.onlineIndicator} />}
           </View>
           <View style={styles.body}>
             <View style={styles.bodyHeader}>
@@ -135,142 +211,13 @@ export const ChatListScreen: React.FC = () => {
               </Text>
             </View>
             <Text style={styles.preview} numberOfLines={1}>
-              {item.lastMessage || 'Нет сообщений'}
+              {previewText(item)}
             </Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [colors, onlineUsers, openChat],
-  );
-
-  const getItemLayout = useCallback(
-    (_data: ArrayLike<ConversationItem> | null | undefined, index: number) => ({
-      length: 72,
-      offset: 72 * index,
-      index,
-    }),
-    [],
-  );
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
-          flex: 1,
-          backgroundColor: colors.background,
-        },
-        header: {
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.md,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          backgroundColor: colors.surface,
-          borderBottomColor: colors.border,
-        },
-        title: {
-          ...typography.title,
-          color: colors.text,
-        },
-        loading: {
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
-        empty: {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingTop: 80,
-        },
-        emptyText: {
-          ...typography.body,
-          marginTop: spacing.md,
-          color: colors.textTertiary,
-        },
-        emptyHint: {
-          ...typography.caption,
-          marginTop: spacing.xs,
-          color: colors.textTertiary,
-        },
-        retryButton: {
-          marginTop: spacing.lg,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.xl,
-          borderRadius: 8,
-          backgroundColor: colors.primary,
-        },
-        retryButtonText: {
-          ...typography.body,
-          fontWeight: '600',
-          color: '#fff',
-        },
-        row: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.md + 2,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-          backgroundColor: colors.surface,
-        },
-        avatarContainer: {
-          position: 'relative',
-          marginRight: spacing.md,
-        },
-        avatar: {
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          overflow: 'hidden',
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderWidth: 2,
-          borderColor: 'transparent',
-          backgroundColor: colors.background,
-        },
-        avatarImage: {
-          width: 56,
-          height: 56,
-        },
-        onlineIndicator: {
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: 14,
-          height: 14,
-          borderRadius: 7,
-          borderWidth: 2,
-          borderColor: colors.surface,
-          backgroundColor: colors.primary,
-        },
-        body: {
-          flex: 1,
-          minWidth: 0,
-        },
-        bodyHeader: {
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 4,
-        },
-        username: {
-          ...typography.body,
-          fontWeight: '600',
-          flex: 1,
-          marginRight: spacing.sm,
-          color: colors.text,
-        },
-        preview: {
-          ...typography.caption,
-          lineHeight: 18,
-          color: colors.textSecondary,
-        },
-        time: {
-          ...typography.captionMuted,
-          fontSize: 12,
-        },
-      }),
-    [colors],
+    [colors, openChat, styles],
   );
 
   const list = query.data ?? [];
@@ -306,7 +253,7 @@ export const ChatListScreen: React.FC = () => {
           refreshControl={
             <RefreshControl
               refreshing={query.isRefetching && list.length > 0}
-              onRefresh={onRefresh}
+              onRefresh={() => query.refetch()}
               tintColor={colors.primary}
             />
           }
@@ -314,9 +261,7 @@ export const ChatListScreen: React.FC = () => {
             <View style={styles.empty}>
               <Ionicons name="chatbubbles-outline" size={64} color={colors.textTertiary} />
               <Text style={styles.emptyText}>Пока нет диалогов</Text>
-              <Text style={styles.emptyHint}>
-                Напишите пользователю из профиля или поиска
-              </Text>
+              <Text style={styles.emptyHint}>Напишите пользователю из профиля или поиска</Text>
             </View>
           }
           showsVerticalScrollIndicator={false}

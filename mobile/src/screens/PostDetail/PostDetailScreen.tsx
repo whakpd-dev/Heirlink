@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
+  FlatList,
+  Dimensions,
+  ViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -19,6 +22,8 @@ import { Comment } from '../../types';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { SmartImage } from '../../components/SmartImage';
 import { MediaItem } from '../../components/MediaItem';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type PostDetailParams = { postId?: string };
 
@@ -196,8 +201,27 @@ export const PostDetailScreen: React.FC = () => {
 
   const user = post.user;
   const username = user?.username ?? '?';
-  const firstMedia = post.media?.[0];
+  const mediaList = post.media ?? [];
   const timeStr = post.createdAt ? formatTime(post.createdAt) : '';
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveMediaIndex(viewableItems[0].index);
+    }
+  }).current;
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 80 }).current;
+
+  const openMediaViewer = useCallback((index: number) => {
+    if (!mediaList.length) return;
+    (navigation as any).push('MediaViewer', {
+      items: mediaList,
+      initialIndex: index,
+      isPostMedia: true,
+      postUser: post.user,
+      postCreatedAt: post.createdAt,
+    });
+  }, [navigation, mediaList, post.user, post.createdAt]);
 
   const renderComment = (c: Comment) => (
     <View key={c.id} style={styles.commentRow}>
@@ -246,20 +270,62 @@ export const PostDetailScreen: React.FC = () => {
             </View>
             <Text style={[styles.username, { color: colors.text }]}>{username}</Text>
           </View>
-          <View style={[styles.media, { width, height: width }]}>
-            {firstMedia?.url ? (
-              <MediaItem
-                uri={firstMedia.url}
-                type={firstMedia.type}
-                thumbnailUrl={firstMedia.thumbnailUrl}
-                style={styles.mediaImage}
-              />
-            ) : (
+          {mediaList.length > 0 ? (
+            <TouchableOpacity activeOpacity={0.95} onPress={() => openMediaViewer(activeMediaIndex)}>
+              {mediaList.length > 1 ? (
+                <View style={{ width: SCREEN_WIDTH }}>
+                  <FlatList
+                    data={mediaList}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item, i) => item.url || String(i)}
+                    onViewableItemsChanged={onViewableItemsChanged}
+                    viewabilityConfig={viewabilityConfig}
+                    getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+                    renderItem={({ item }) => (
+                      <View style={{ width: SCREEN_WIDTH, aspectRatio: 1, backgroundColor: '#000' }}>
+                        <MediaItem
+                          uri={item.url}
+                          type={item.type}
+                          thumbnailUrl={item.thumbnailUrl}
+                          style={styles.mediaImage}
+                          muted
+                        />
+                      </View>
+                    )}
+                  />
+                  <View style={styles.dotsRow}>
+                    {mediaList.map((_: any, i: number) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          { backgroundColor: i === activeMediaIndex ? colors.primary : 'rgba(255,255,255,0.4)' },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={{ width: SCREEN_WIDTH, aspectRatio: 1, backgroundColor: '#000' }}>
+                  <MediaItem
+                    uri={mediaList[0].url}
+                    type={mediaList[0].type}
+                    thumbnailUrl={mediaList[0].thumbnailUrl}
+                    style={styles.mediaImage}
+                    muted
+                  />
+                </View>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.media, { width: SCREEN_WIDTH, height: SCREEN_WIDTH }]}>
               <View style={styles.mediaPlaceholder}>
                 <Ionicons name="image-outline" size={64} color={colors.textTertiary} />
               </View>
-            )}
-          </View>
+            </View>
+          )}
           <View style={styles.actions}>
             <View style={styles.actionsLeft}>
               <TouchableOpacity onPress={handleLike} style={styles.actionBtn} activeOpacity={0.8}>
@@ -404,6 +470,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dotsRow: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   actions: {
     flexDirection: 'row',
